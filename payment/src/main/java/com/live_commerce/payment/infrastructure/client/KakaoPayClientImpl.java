@@ -14,6 +14,7 @@ import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import com.live_commerce.payment.application.exception.KakaoPayApiException;
 import com.live_commerce.payment.application.port.KakaoPayClient;
 import com.live_commerce.payment.infrastructure.client.dto.KakaoPayApproveDto;
 import com.live_commerce.payment.infrastructure.client.dto.KakaoPayCancelDto;
@@ -57,14 +58,18 @@ public class KakaoPayClientImpl implements KakaoPayClient {
 
 		HttpEntity<Map<String, Object>> request = new HttpEntity<>(params, headers);
 
-		return retryTemplate.execute(context -> {
-			ResponseEntity<KakaoPayReadyDto> response = restTemplate.postForEntity(
-				"https://open-api.kakaopay.com/online/v1/payment/ready",
-				request,
-				KakaoPayReadyDto.class
-			);
-			return response.getBody();
-		});
+		try {
+			return retryTemplate.execute(context -> {
+				ResponseEntity<KakaoPayReadyDto> response = restTemplate.postForEntity(
+					"https://open-api.kakaopay.com/online/v1/payment/ready",
+					request,
+					KakaoPayReadyDto.class
+				);
+				return response.getBody();
+			});
+		} catch (Exception e) {
+			throw KakaoPayApiException.forReadyFailed(e);
+		}
 	}
 
 	@Override
@@ -82,14 +87,18 @@ public class KakaoPayClientImpl implements KakaoPayClient {
 
 		HttpEntity<Map<String, Object>> request = new HttpEntity<>(params, headers);
 
-		return retryTemplate.execute(context -> {
-			ResponseEntity<KakaoPayApproveDto> response = restTemplate.postForEntity(
-				"https://open-api.kakaopay.com/online/v1/payment/approve",
-				request,
-				KakaoPayApproveDto.class
-			);
-			return response.getBody();
-		});
+		try {
+			return retryTemplate.execute(context -> {
+				ResponseEntity<KakaoPayApproveDto> response = restTemplate.postForEntity(
+					"https://open-api.kakaopay.com/online/v1/payment/approve",
+					request,
+					KakaoPayApproveDto.class
+				);
+				return response.getBody();
+			});
+		} catch (Exception e) {
+			throw KakaoPayApiException.forApproveFailed(e);
+		}
 	}
 
 	@Override
@@ -106,13 +115,17 @@ public class KakaoPayClientImpl implements KakaoPayClient {
 
 		HttpEntity<Map<String, Object>> request = new HttpEntity<>(params, headers);
 
-		return retryTemplate.execute(context -> {
-			ResponseEntity<KakaoPayCancelDto> response = restTemplate.postForEntity(
-				"https://open-api.kakaopay.com/online/v1/payment/cancel",
-				request,
-				KakaoPayCancelDto.class
-			);
-			return response.getBody();
-		});
+		try {
+			return retryTemplate.execute(context -> {
+				ResponseEntity<KakaoPayCancelDto> response = restTemplate.postForEntity(
+					"https://open-api.kakaopay.com/online/v1/payment/cancel",
+					request,
+					KakaoPayCancelDto.class
+				);
+				return response.getBody();
+			});
+		} catch (Exception e) {
+			throw KakaoPayApiException.forCancelFailed(e);
+		}
 	}
 }

@@ -21,6 +21,7 @@ import com.live_commerce.payment.application.dto.response.PaymentApproveResponse
 import com.live_commerce.payment.application.dto.response.PaymentGetResponseDto;
 import com.live_commerce.payment.application.dto.response.PaymentReadyResponseDto;
 import com.live_commerce.payment.application.exception.CustomException;
+import com.live_commerce.payment.application.exception.KakaoPayApiException;
 import com.live_commerce.payment.application.exception.PaymentExceptionCode;
 import com.live_commerce.payment.application.port.KakaoPayClient;
 import com.live_commerce.payment.domain.model.Payment;
@@ -79,30 +80,31 @@ public class PaymentServiceV2 {
 		Payment payment = paymentRepository.findByOrderId(UUID.fromString(requestDto.orderId()))
 			.orElseThrow(() -> new CustomException(PaymentExceptionCode.NOT_FOUND));
 
+		// 상태 검증 (상태 변경 전에 예외 발생)
 		if (payment.getStatus() != PaymentStatus.PENDING) {
-			payment.updateStatus(PaymentStatus.FAILED);
 			throw new CustomException(PaymentExceptionCode.INVALID_STATUS);
 		}
 
+		// 1. 외부 API 호출 (실패 시 예외 발생)
 		KakaoPayApproveDto approveDto;
 		try {
 			approveDto = kakaoPayClient.requestKakaoPayApprove(
 				requestDto.tid(), requestDto.pgToken(), requestDto.orderId(), userId.toString()
 			);
-		} catch (Exception e) {
-			payment.updateStatus(PaymentStatus.FAILED);
+		} catch (KakaoPayApiException e) {
+			log.warn("[Payment] 카카오페이 승인 실패 - orderId: {}, 사유: {}", requestDto.orderId(), e.getMessage());
 
-			// 카프카로 결제 실패 이벤트 발행
+			// 2-1. 실패 시: DB 업데이트 후 이벤트 발행
+			payment.updateStatus(PaymentStatus.FAILED);
 			paymentEventProducer.sendPaymentFailed(
-				new PaymentFailedEvent(payment.getOrderId(), "카카오페이 승인 실패")
+				new PaymentFailedEvent(payment.getOrderId(), "카카오페이 승인 실패: " + e.getMessage())
 			);
 
 			throw new CustomException(PaymentExceptionCode.PAYMENT_APPROVE_FAIL);
 		}
 
+		// 2-2. 성공 시: DB 업데이트 후 이벤트 발행
 		payment.updateStatus(PaymentStatus.COMPLETED);
-
-		// 카프카로 결제 완료 이벤트 발행
 		paymentEventProducer.sendPaymentCompleted(
 			new PaymentCompletedEvent(
 				payment.getOrderId(),
@@ -111,6 +113,7 @@ public class PaymentServiceV2 {
 			)
 		);
 
+		log.info("[Payment] 결제 승인 완료 - orderId: {}, amount: {}", payment.getOrderId(), payment.getAmount());
 
 		return PaymentApproveResponseDto.from(approveDto);
 	}
@@ -164,13 +167,23 @@ public class PaymentServiceV2 {
 			throw new CustomException(PaymentExceptionCode.INVALID_STATUS);
 		}
 
-		kakaoPayClient.requestKakaoPayCancel(payment.getTid(), payment.getAmount());
+		// 1. 카카오페이 환불 처리
+		try {
+			kakaoPayClient.requestKakaoPayCancel(payment.getTid(), payment.getAmount());
+		} catch (KakaoPayApiException e) {
+			log.error("[Payment] 카카오페이 환불 실패 - orderId: {}, 사유: {}", orderId, e.getMessage());
+			throw new CustomException(PaymentExceptionCode.PAYMENT_APPROVE_FAIL);
+		}
+
+		// 2. DB 업데이트
 		payment.updateStatus(PaymentStatus.REFUND);
 
+		// 3. 주문 서비스 통지 (비동기, 실패해도 환불은 완료됨)
 		try {
 			orderClient.notifyOrderCancel(orderId, new PaymentCancelRequest(false, "결제 취소 처리됨"));
+			log.info("[Payment] 주문 서비스에 환불 통지 완료 - orderId: {}", orderId);
 		} catch (Exception e) {
-			log.warn("주문 서비스에 결제 취소 알림 실패: {}", e.getMessage());
+			log.warn("[Payment] 주문 서비스 통지 실패 (환불은 완료됨) - orderId: {}, 사유: {}", orderId, e.getMessage());
 		}
 
 		return PaymentRefundResponseDto.from(payment);
@@ -185,13 +198,16 @@ public class PaymentServiceV2 {
 			throw new CustomException(PaymentExceptionCode.INVALID_STATUS);
 		}
 
+		// 1. DB 업데이트 (PENDING -> CANCELED)
+		payment.updateStatus(PaymentStatus.CANCELED);
+
+		// 2. 주문 서비스 통지 (실패해도 취소는 완료됨)
 		try {
 			orderClient.notifyOrderCancel(orderId, new PaymentCancelRequest(false, "결제 취소 처리됨"));
+			log.info("[Payment] 주문 서비스에 취소 통지 완료 - orderId: {}", orderId);
 		} catch (Exception e) {
-			log.warn("주문 서비스에 결제 취소 알림 실패: {}", e.getMessage());
+			log.warn("[Payment] 주문 서비스 통지 실패 (취소는 완료됨) - orderId: {}, 사유: {}", orderId, e.getMessage());
 		}
-
-		payment.updateStatus(PaymentStatus.CANCELED);
 	}
 
 	@Transactional
@@ -199,12 +215,22 @@ public class PaymentServiceV2 {
 		Payment payment = paymentRepository.findByOrderId(orderId)
 			.orElseThrow(() -> new CustomException(PaymentExceptionCode.NOT_FOUND));
 
+		// 이미 환불/취소된 경우 스킵
 		if (payment.getStatus() != PaymentStatus.COMPLETED) {
 			log.info("[Payment] 보상 처리 스킵: 이미 취소/실패한 결제입니다. orderId={}, status={}", orderId, payment.getStatus());
 			return;
 		}
 
-		kakaoPayClient.requestKakaoPayCancel(payment.getTid(), payment.getAmount());
+		// 1. 카카오페이 환불 처리
+		try {
+			kakaoPayClient.requestKakaoPayCancel(payment.getTid(), payment.getAmount());
+		} catch (KakaoPayApiException e) {
+			log.error("[Payment] 보상 환불 실패 - orderId: {}, 사유: {}", orderId, e.getMessage());
+			// 보상 트랜잭션이므로 재시도 필요 (수동 개입 알림 필요)
+			throw e;
+		}
+
+		// 2. DB 업데이트
 		payment.updateStatus(PaymentStatus.REFUND);
 
 		log.info("[Payment] 보상 결제 취소 완료: orderId = {}, message = {}", orderId, message);
