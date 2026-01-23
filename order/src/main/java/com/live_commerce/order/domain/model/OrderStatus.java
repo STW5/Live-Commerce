@@ -6,7 +6,8 @@ public enum OrderStatus {
     PAID("결제 완료"),
     PROCESSING("상품 준비 중 및 배송 완료"),
     CANCELLED("주문 취소"),
-    REFUNDED("환불 완료");
+    REFUNDED("환불 완료"),
+    FAILED("주문 실패");
 
     private final String description;
 
