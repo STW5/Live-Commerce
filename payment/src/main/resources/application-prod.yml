@@ -66,6 +66,11 @@ kakao:
 gateway:
   base-url: ${GATEWAY_BASE_URL}
 
+notification:
+  slack:
+    enabled: ${SLACK_ENABLED:false}
+    webhook-url: ${SLACK_WEBHOOK_URL:}
+
 management:
   endpoints:
     web:
