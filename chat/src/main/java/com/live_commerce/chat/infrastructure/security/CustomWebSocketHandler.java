@@ -10,6 +10,7 @@ import com.live_commerce.chat.domain.model.MessageType;
 import com.live_commerce.chat.infrastructure.client.BroadcastClient;
 import com.live_commerce.chat.infrastructure.client.BroadcastStatus;
 import com.live_commerce.chat.infrastructure.client.BroadcastStatusResponse;
+import com.live_commerce.chat.infrastructure.redis.ChatRedisPublisher;
 import com.live_commerce.chat.presentation.common.ApiResponse;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
@@ -30,59 +31,78 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class CustomWebSocketHandler extends TextWebSocketHandler {
 
-    // 방송 ID (String)별로 접속한 유저들의 세션을 관리
+    // 방송 ID (String)별로 접속한 유저들의 세션을 관리 (멀티 인스턴스 환경에서도 로컬 세션 관리 필요)
     private final Map<String, Set<WebSocketSession>> roomSessions = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final ChatService chatService;  // chatService 주입
+    private final ChatService chatService;
     private final JwtUtil jwtUtil;
     private final BroadcastClient broadcastClient;
+    private final ChatRedisPublisher chatRedisPublisher;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-//        List<String> authHeaders = session.getHandshakeHeaders().get("Authorization");
-//        log.info("authHeaders: {}", authHeaders);
-//
-//        String token = authHeaders.get(0).replace("Bearer ", "").trim();
-//        log.info("토큰 : " + token);
-//
-//        // Token이 유효하면 claims에서 사용자 정보 추출
-//        Claims claims = jwtUtil.parseClaims(token);
-//        UUID userId = UUID.fromString(claims.get("userId", String.class));
-//        String role = claims.get("role", String.class);
-//        log.info("userId와 role 들고오기!");
-//
-//        // 세션에 userId, role을 저장
-//        session.getAttributes().put("userId", userId);
-//        session.getAttributes().put("role", role);
-//
-//        log.info("WebSocket 연결됨 - userId: {}, role: {}", userId, role);
-        log.info("WebSocket 연결됨: {}");
+        // HandshakeInterceptor에서 설정한 attributes에서 사용자 정보 추출
+        String userId = (String) session.getAttributes().get("userId");
+        String username = (String) session.getAttributes().get("username");
+        String role = (String) session.getAttributes().get("role");
+
+        if (userId == null || role == null) {
+            log.warn("WebSocket 연결 실패: 인증 정보 없음 - sessionId: {}", session.getId());
+            try {
+                session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized: Missing authentication"));
+            } catch (Exception e) {
+                log.error("세션 종료 실패", e);
+            }
+            return;
+        }
+
+        // UUID로 변환하여 세션에 저장
+        session.getAttributes().put("userIdUUID", UUID.fromString(userId));
+
+        log.info("WebSocket 연결 성공 - sessionId: {}, userId: {}, username: {}, role: {}",
+            session.getId(), userId, username, role);
     }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-
         // 메시지 파싱
         ChatCreateRequest request = objectMapper.readValue(message.getPayload(), ChatCreateRequest.class);
 
-        //TODO 사용자 인증 정보 추출
-//        UUID userId = (UUID) session.getAttributes().get("userId");
-//        String role = (String) session.getAttributes().get("role");
-//
-//        if (userId == null || role == null) {
-//            log.info("userId나 role이 없습니다");
-//            session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
-//            return;
-//        }
-        UUID userId = request.userId();
+        // 세션에서 인증 정보 추출
+        UUID userId = (UUID) session.getAttributes().get("userIdUUID");
+        String role = (String) session.getAttributes().get("role");
 
-        //방송중인지 검증
-//        ApiResponse<BroadcastStatusResponse> response = broadcastClient.getBroadcast(request.liveBroadcastId());
-//        BroadcastStatusResponse statusResponse = response.getData();
-//        if (statusResponse == null || statusResponse.broadcastStatus() != BroadcastStatus.LIVE) {
-//            throw new ChatException("방송 중일 때만 채팅이 가능합니다.");
-//        }
-//        log.info("방송 체크 완료");
+        if (userId == null || role == null) {
+            log.warn("인증되지 않은 사용자의 메시지 차단 - sessionId: {}", session.getId());
+            session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
+            return;
+        }
+
+        // 방송 상태 검증
+        try {
+            ApiResponse<BroadcastStatusResponse> response = broadcastClient.getBroadcast(request.liveBroadcastId());
+            BroadcastStatusResponse statusResponse = response.getData();
+
+            if (statusResponse == null || statusResponse.broadcastStatus() != BroadcastStatus.LIVE) {
+                log.warn("방송 중이 아닌 상태에서 채팅 시도 - userId: {}, broadcastId: {}, status: {}",
+                    userId, request.liveBroadcastId(), statusResponse != null ? statusResponse.broadcastStatus() : "NULL");
+
+                session.sendMessage(new TextMessage(
+                    objectMapper.writeValueAsString(Map.of(
+                        "error", "방송 중일 때만 채팅이 가능합니다.",
+                        "broadcastStatus", statusResponse != null ? statusResponse.broadcastStatus() : "UNKNOWN"
+                    ))
+                ));
+                return;
+            }
+            log.debug("방송 상태 검증 완료 - broadcastId: {}, status: LIVE", request.liveBroadcastId());
+        } catch (Exception e) {
+            log.error("방송 상태 조회 실패 - broadcastId: {}", request.liveBroadcastId(), e);
+            session.sendMessage(new TextMessage(
+                objectMapper.writeValueAsString(Map.of("error", "방송 정보를 확인할 수 없습니다."))
+            ));
+            return;
+        }
 
         // 메시지 타입에 따른 처리
         String broadcastId = request.liveBroadcastId().toString();
@@ -108,70 +128,78 @@ public class CustomWebSocketHandler extends TextWebSocketHandler {
         });
     }
 
+    /**
+     * Redis Pub/Sub Subscriber에서 호출하는 메서드
+     * 해당 방송에 연결된 모든 WebSocket 세션에 메시지 브로드캐스트
+     */
     public void broadcast(UUID broadcastId, UUID userId, String content) {
-        // 메시지 객체 생성
-        Chat message = Chat.builder()
-                .liveBroadcastId(broadcastId)
-                .userId(userId)
-                .chatting(content)
-                .type(MessageType.ENTER) // 또는 다른 MessageType을 사용할 수 있음
-                .build();
-
         String broadcastIdStr = broadcastId.toString();
 
         // 해당 broadcastId에 연결된 세션 목록 가져오기
         Set<WebSocketSession> sessions = roomSessions.get(broadcastIdStr);
 
-        if (sessions != null) {
-            // 세션이 존재하면, 각 세션에 메시지 전송
-            for (WebSocketSession s : sessions) {
-                try {
-                    if (s.isOpen()) {
-                        // 메시지를 JSON으로 변환 후 전송
-                        s.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
-                    }
-                } catch (Exception e) {
-                    log.error("브로드캐스트 중 오류", e);
-                    // 예외 처리 (필요 시, 실패한 세션 삭제 등)
-                }
-            }
+        if (sessions == null || sessions.isEmpty()) {
+            log.debug("브로드캐스트 대상 세션 없음 - broadcastId: {}", broadcastId);
+            return;
         }
 
+        // 메시지 객체 생성
+        Map<String, Object> message = Map.of(
+            "liveBroadcastId", broadcastId.toString(),
+            "userId", userId.toString(),
+            "chatting", content,
+            "timestamp", System.currentTimeMillis()
+        );
+
+        String messageJson;
+        try {
+            messageJson = objectMapper.writeValueAsString(message);
+        } catch (Exception e) {
+            log.error("메시지 JSON 변환 실패", e);
+            return;
+        }
+
+        // 각 세션에 메시지 전송
+        sessions.removeIf(session -> {
+            try {
+                if (session.isOpen()) {
+                    session.sendMessage(new TextMessage(messageJson));
+                    return false; // 유지
+                }
+            } catch (Exception e) {
+                log.error("WebSocket 메시지 전송 실패 - sessionId: {}", session.getId(), e);
+            }
+            return true; // 제거 (연결 끊긴 세션)
+        });
+
+        log.debug("브로드캐스트 완료 - broadcastId: {}, 전송 세션 수: {}", broadcastId, sessions.size());
     }
 
     private void handleEnter(WebSocketSession session, UUID userId, ChatCreateRequest request) {
         String broadcastId = request.liveBroadcastId().toString();
         roomSessions.get(broadcastId).add(session);
 
-        // 입장 메시지 생성
-        Chat enterMessage = Chat.builder()
-                .liveBroadcastId(request.liveBroadcastId())
-                .userId(userId)
-                .chatting("입장하셨습니다.")
-                .type(MessageType.ENTER)
-                .build();
+        // Redis Pub/Sub을 통해 입장 메시지 발행 (멀티 인스턴스 대응)
+        ChatCreateRequest enterRequest = new ChatCreateRequest(
+            request.liveBroadcastId(),
+            userId,
+            "입장하셨습니다.",
+            MessageType.ENTER
+        );
+        chatRedisPublisher.publishChat(enterRequest, userId);
 
-        broadcastMessage(broadcastId, enterMessage);
         log.info("입장 처리 완료 - userId: {}, 방송: {}", userId, broadcastId);
     }
 
     private void handleTalk(WebSocketSession session, UUID userId, ChatCreateRequest request) {
-        UUID sender = request.userId();
         String broadcastId = request.liveBroadcastId().toString();
-
-        // 채팅 메시지 생성
-        Chat chatMessage = Chat.builder()
-                .chatting(request.chatting())
-                .userId(userId)
-                .liveBroadcastId(request.liveBroadcastId())
-                .type(MessageType.TALK)
-                .build();
-
-        chatService.createChat(request, sender); // DB 저장
         roomSessions.get(broadcastId).add(session);
 
-        broadcastMessage(broadcastId, chatMessage);
-        log.info("TALK 메시지 전송 - userId: {}, 방송: {}, 내용: {}", sender, broadcastId, chatMessage.getChatting());
+        // Redis Pub/Sub을 통해 채팅 메시지 발행 (멀티 인스턴스 대응)
+        // Subscriber에서 DB 저장 및 브로드캐스트 처리
+        chatRedisPublisher.publishChat(request, userId);
+
+        log.info("TALK 메시지 발행 - userId: {}, 방송: {}, 내용: {}", userId, broadcastId, request.chatting());
     }
 
     private void handleLeave(WebSocketSession session, UUID userId, ChatCreateRequest request) {
@@ -181,37 +209,17 @@ public class CustomWebSocketHandler extends TextWebSocketHandler {
         Set<WebSocketSession> sessions = roomSessions.getOrDefault(broadcastId, Set.of());
         sessions.remove(session);
 
-        // 퇴장 메시지 생성
-        Chat leaveMessage = Chat.builder()
-                .liveBroadcastId(request.liveBroadcastId())
-                .userId(userId)
-                .chatting("퇴장하셨습니다.")
-                .type(MessageType.LEAVE)
-                .build();
+        // Redis Pub/Sub을 통해 퇴장 메시지 발행 (멀티 인스턴스 대응)
+        ChatCreateRequest leaveRequest = new ChatCreateRequest(
+            request.liveBroadcastId(),
+            userId,
+            "퇴장하셨습니다.",
+            MessageType.LEAVE
+        );
+        chatRedisPublisher.publishChat(leaveRequest, userId);
 
-        broadcastMessage(broadcastId, leaveMessage);
         log.info("퇴장 처리 완료 - userId: {}, 방송: {}", userId, broadcastId);
     }
 
-    // 해당 방송 ID의 모든 세션에 메시지를 브로드캐스트하는 메서드
-    private void broadcastMessage(String broadcastId, Chat message) {
-        Set<WebSocketSession> sessions = roomSessions.get(broadcastId);
-
-        if (sessions != null) {
-            // 각 세션에 메시지 전송
-            for (WebSocketSession s : sessions) {
-                try {
-                    if (s.isOpen()) {
-                        // 메시지를 JSON으로 변환 후 전송
-                        s.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
-                    }
-                } catch (Exception e) {
-                    log.error("브로드캐스트 중 오류", e);
-                    // 예외 처리 (필요 시, 실패한 세션 삭제 등)
-                }
-            }
-        }
-
-    }
 }
 

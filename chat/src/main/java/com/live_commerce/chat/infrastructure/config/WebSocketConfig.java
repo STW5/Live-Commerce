@@ -20,7 +20,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(customWebSocketHandler, "/room")
-                //.addInterceptors(webSocketHandshakeInterceptor)
-                .setAllowedOriginPatterns("*"); // 프론트 없이 Postman 등 테스트 가능하도록 설정
+                .addInterceptors(webSocketHandshakeInterceptor)
+                .setAllowedOriginPatterns("*"); // CORS 설정
     }
 }
