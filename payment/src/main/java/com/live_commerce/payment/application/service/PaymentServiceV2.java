@@ -94,8 +94,8 @@ public class PaymentServiceV2 {
 		} catch (KakaoPayApiException e) {
 			log.warn("[Payment] 카카오페이 승인 실패 - orderId: {}, 사유: {}", requestDto.orderId(), e.getMessage());
 
-			// 2-1. 실패 시: DB 업데이트 후 이벤트 발행
-			payment.updateStatus(PaymentStatus.FAILED);
+			// 2-1. 실패 시: 도메인 메서드 사용
+			payment.failWithReason("카카오페이 승인 실패: " + e.getMessage());
 			paymentEventProducer.sendPaymentFailed(
 				new PaymentFailedEvent(payment.getOrderId(), "카카오페이 승인 실패: " + e.getMessage())
 			);
@@ -103,8 +103,8 @@ public class PaymentServiceV2 {
 			throw new CustomException(PaymentExceptionCode.PAYMENT_APPROVE_FAIL);
 		}
 
-		// 2-2. 성공 시: DB 업데이트 후 이벤트 발행
-		payment.updateStatus(PaymentStatus.COMPLETED);
+		// 2-2. 성공 시: 도메인 메서드 사용
+		payment.complete();
 		paymentEventProducer.sendPaymentCompleted(
 			new PaymentCompletedEvent(
 				payment.getOrderId(),
@@ -175,8 +175,8 @@ public class PaymentServiceV2 {
 			throw new CustomException(PaymentExceptionCode.PAYMENT_APPROVE_FAIL);
 		}
 
-		// 2. DB 업데이트
-		payment.updateStatus(PaymentStatus.REFUND);
+		// 2. 도메인 메서드 사용
+		payment.refund();
 
 		// 3. 주문 서비스 통지 (비동기, 실패해도 환불은 완료됨)
 		try {
@@ -198,8 +198,8 @@ public class PaymentServiceV2 {
 			throw new CustomException(PaymentExceptionCode.INVALID_STATUS);
 		}
 
-		// 1. DB 업데이트 (PENDING -> CANCELED)
-		payment.updateStatus(PaymentStatus.CANCELED);
+		// 1. 도메인 메서드 사용 (PENDING -> CANCELED)
+		payment.cancel();
 
 		// 2. 주문 서비스 통지 (실패해도 취소는 완료됨)
 		try {
@@ -230,8 +230,8 @@ public class PaymentServiceV2 {
 			throw e;
 		}
 
-		// 2. DB 업데이트
-		payment.updateStatus(PaymentStatus.REFUND);
+		// 2. 도메인 메서드 사용
+		payment.refund();
 
 		log.info("[Payment] 보상 결제 취소 완료: orderId = {}, message = {}", orderId, message);
 	}

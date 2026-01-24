@@ -80,7 +80,7 @@ public class PaymentService {
 
 		// 1) 승인 가능한 상태인지 체크
 		if (payment.getStatus() != PaymentStatus.PENDING) {
-			payment.updateStatus(PaymentStatus.FAILED); // 승인 전 상태가 아니면 실패 처리
+			payment.fail(); // 승인 전 상태가 아니면 실패 처리
 			throw new CustomException(PaymentExceptionCode.INVALID_STATUS);
 		}
 
@@ -95,7 +95,7 @@ public class PaymentService {
 			);
 		} catch (Exception e) {
 			// 카카오 API 호출 자체가 실패한 경우
-			payment.updateStatus(PaymentStatus.FAILED);
+			payment.fail();
 
 
 			// 주문 서비스에 결제 실패 알림
@@ -112,8 +112,8 @@ public class PaymentService {
 			throw new CustomException(PaymentExceptionCode.PAYMENT_APPROVE_FAIL);
 		}
 
-		// 3) 성공적으로 승인됐으면 상태 변경
-		payment.updateStatus(PaymentStatus.COMPLETED);
+		// 3) 성공적으로 승인됐으면 도메인 메서드 사용
+		payment.complete();
 
 		// 주문 서비스에 결제 성공 알림
 		try {
@@ -190,7 +190,7 @@ public class PaymentService {
 		}
 
 		kakaoPayClient.requestKakaoPayCancel(payment.getTid(), payment.getAmount());
-		payment.updateStatus(PaymentStatus.REFUND);
+		payment.refund();
 
 		try {
 			orderClient.notifyOrderCancel(
@@ -225,7 +225,7 @@ public class PaymentService {
 			log.warn("주문 서비스에 결제 취소 알림 실패: {}", e.getMessage());
 		}
 
-		payment.updateStatus(PaymentStatus.CANCELED);
+		payment.cancel();
 	}
 
 

@@ -13,6 +13,10 @@ import com.live_commerce.payment.domain.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Redis TTL 만료 리스너
+ * - 결제 타임아웃 시 자동으로 FAILED 처리
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -32,7 +36,7 @@ public class PaymentExpirationListener implements MessageListener {
 
 				paymentRepository.findByOrderIdAndStatus(orderId, PaymentStatus.PENDING)
 					.ifPresent(payment -> {
-						payment.updateStatus(PaymentStatus.FAILED);
+						payment.fail();
 						log.info("자동 실패 처리 완료 – paymentId: {}, orderId: {}", payment.getId(), orderId);
 					});
 			} catch (Exception e) {
