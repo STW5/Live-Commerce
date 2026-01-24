@@ -32,6 +32,9 @@ import com.live_commerce.payment.domain.repository.PaymentRepository;
 import com.live_commerce.payment.infrastructure.client.OrderClient;
 import com.live_commerce.payment.infrastructure.security.RequestUserDetails;
 
+/**
+ * PaymentService 테스트
+ */
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
@@ -172,7 +175,7 @@ public class PaymentServiceTest {
 	void cancelPayment_alreadyCompleted_fail() {
 		// Given
 		Payment payment = Payment.of(userId, orderId, BigDecimal.valueOf(15000));
-		payment.updateStatus(PaymentStatus.COMPLETED);
+		payment.complete();
 		paymentRepository.save(payment);
 		RequestUserDetails userDetails = new RequestUserDetails(userId, null, Collections.emptyList());
 		// When & Then
@@ -201,7 +204,7 @@ public class PaymentServiceTest {
 	void refundPayment_completed_success() {
 		// Given
 		Payment payment = Payment.of(userId, orderId, BigDecimal.valueOf(15000));
-		payment.updateStatus(PaymentStatus.COMPLETED);
+		payment.complete();
 		payment.assignTid("TID123");
 		paymentRepository.save(payment);
 		RequestUserDetails userDetails = new RequestUserDetails(userId, null, Collections.emptyList());
@@ -218,7 +221,7 @@ public class PaymentServiceTest {
 	void refundPayment_byMaster_success() {
 		// Given
 		Payment payment = Payment.of(userId, orderId, BigDecimal.valueOf(20000));
-		payment.updateStatus(PaymentStatus.COMPLETED);
+		payment.complete();
 		payment.assignTid("TID999");
 		paymentRepository.save(payment);
 		RequestUserDetails master = new RequestUserDetails(UUID.randomUUID(), null, List.of(() -> "ROLE_MASTER"));
@@ -235,7 +238,7 @@ public class PaymentServiceTest {
 	void refundPayment_notCompleted_fail() {
 		// Given
 		Payment payment = Payment.of(userId, orderId, BigDecimal.valueOf(15000));
-		payment.updateStatus(PaymentStatus.PENDING);
+		// PENDING은 기본 상태이므로 변경 불필요 (이미 PENDING)
 		paymentRepository.save(payment);
 		RequestUserDetails userDetails = new RequestUserDetails(userId, null, Collections.emptyList());
 		// When & Then
@@ -250,7 +253,7 @@ public class PaymentServiceTest {
 	void refundPayment_unauthorizedUser_fail() {
 		// Given
 		Payment payment = Payment.of(userId, orderId, BigDecimal.valueOf(9999));
-		payment.updateStatus(PaymentStatus.COMPLETED);
+		payment.complete();
 		payment.assignTid("TID456");
 		paymentRepository.save(payment);
 		RequestUserDetails otherUser = new RequestUserDetails(UUID.randomUUID(), null, Collections.emptyList());
