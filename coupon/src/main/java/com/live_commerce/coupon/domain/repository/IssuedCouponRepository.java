@@ -12,5 +12,7 @@ public interface IssuedCouponRepository extends JpaRepository<IssuedCoupon, UUID
 
   Optional<IssuedCoupon> findByIdAndUserIdAndIsUsedFalse(UUID couponId, UUID userId);
 
+  Optional<IssuedCoupon> findByIdAndUserId(UUID couponId, UUID userId);
+
   List<IssuedCoupon> findByUserId(UUID userId);
 }

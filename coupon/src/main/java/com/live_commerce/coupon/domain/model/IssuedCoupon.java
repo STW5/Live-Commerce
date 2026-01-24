@@ -76,4 +76,16 @@ public class IssuedCoupon {
     this.usedAt = LocalDateTime.now();
   }
 
+  /**
+   * 쿠폰 사용 취소 (보상 트랜잭션)
+   * 주문 실패 시 사용된 쿠폰을 복구합니다.
+   */
+  public void restoreCoupon() {
+    if (!this.isUsed) {
+      throw new IllegalStateException("This coupon has not been used yet");
+    }
+    this.isUsed = false;
+    this.usedAt = null;
+  }
+
 }

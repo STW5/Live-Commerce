@@ -8,6 +8,7 @@ import com.live_commerce.coupon.domain.model.DISCOUNT_TYPE;
 import com.live_commerce.coupon.domain.model.IssuedCoupon;
 import com.live_commerce.coupon.domain.repository.CouponPolicyRepository;
 import com.live_commerce.coupon.domain.repository.IssuedCouponRepository;
+import com.live_commerce.coupon.infrastructure.client.OrderClient;
 import com.live_commerce.coupon.infrastructure.security.RequestUserDetails;
 import com.live_commerce.coupon.presentation.dto.request.IssuedCouponRequest;
 import com.live_commerce.coupon.presentation.dto.response.FirstJoinCouponResponse;
@@ -30,6 +31,7 @@ public class IssuedCouponService {
 
   private final IssuedCouponRepository issuedCouponRepository;
   private final CouponPolicyRepository couponPolicyRepository;
+  private final OrderClient orderClient;
   // private final IssueFirstJoinCouponPort firstJoinCouponPort;
   // private final PublishCouponUsedEventPort publishCouponUsedEventPort;
 
@@ -176,5 +178,45 @@ public class IssuedCouponService {
 
     checkIfCouponUsed(issuedCoupon);
     processCouponUsage(issuedCoupon);
+  }
+
+  /**
+   * 주문 실패 이벤트 처리 (보상 트랜잭션)
+   * 주문 실패 시 사용된 쿠폰을 복구합니다.
+   */
+  public void handleOrderFailedEvent(UUID orderId) {
+    log.info("[보상 트랜잭션] 쿠폰 복구 시작 - orderId: {}", orderId);
+
+    // 1. 주문 정보 조회 (Feign Client)
+    OrderClient.OrderResponse order = orderClient.getOrder(orderId);
+
+    // 2. 쿠폰을 사용하지 않은 주문인 경우 스킵
+    if (order.couponId() == null) {
+      log.info("[보상 트랜잭션] 쿠폰을 사용하지 않은 주문 - orderId: {}", orderId);
+      return;
+    }
+
+    // 3. 사용된 쿠폰 조회
+    IssuedCoupon issuedCoupon = issuedCouponRepository
+            .findByIdAndUserId(order.couponId(), order.userId())
+            .orElseThrow(() -> {
+              log.error("[보상 트랜잭션] 쿠폰을 찾을 수 없음 - couponId: {}, userId: {}",
+                      order.couponId(), order.userId());
+              IssuedCouponException.issuedCouponNotFound();
+              return null;
+            });
+
+    // 4. 이미 미사용 상태인 경우 스킵 (멱등성 보장)
+    if (!issuedCoupon.getIsUsed()) {
+      log.info("[보상 트랜잭션] 이미 미사용 상태인 쿠폰 - couponId: {}", order.couponId());
+      return;
+    }
+
+    // 5. 쿠폰 복구 (사용 취소)
+    issuedCoupon.restoreCoupon();
+    issuedCouponRepository.save(issuedCoupon);
+
+    log.info("[보상 트랜잭션] 쿠폰 복구 완료 - couponId: {}, orderId: {}",
+            order.couponId(), orderId);
   }
 }

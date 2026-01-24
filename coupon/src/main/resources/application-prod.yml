@@ -27,6 +27,20 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ${spring.application.name}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: '*'
+        spring.json.type.mapping: >
+          order-failed:com.live_commerce.coupon.infrastructure.kafka.event.OrderFailedEvent,
+          coupon-used:com.live_commerce.coupon.infrastructure.kafka.event.CouponUsedEvent,
+          first-join-coupon:com.live_commerce.coupon.infrastructure.kafka.event.FirstJoinCouponEvent
+
 management:
   endpoints:
     web:
