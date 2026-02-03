@@ -24,7 +24,9 @@ import com.live_commerce.user.infrastructure.common.RedisUtil;
 import io.jsonwebtoken.Claims;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -65,7 +67,12 @@ public class AuthService {
 		User savedUser = userRepository.save(user);
 
 		// 회원가입 성공 후 첫가입 쿠폰 발급 요청
-		couponClient.issueFirstCoupon(savedUser.getUserId());
+		try {
+			couponClient.issueFirstCoupon(savedUser.getUserId());
+		} catch (Exception e) {
+			// 쿠폰 서비스 장애 시에도 회원가입은 성공 처리
+			log.warn("Failed to issue first coupon for user: {}", savedUser.getUserId(), e);
+		}
 
 		return UserSignUpResponseDto.from(savedUser);
 	}
