@@ -9,7 +9,10 @@ public record KakaoPayApproveDto(
 	@JsonProperty("partner_order_id") String partnerOrderId,
 	@JsonProperty("partner_user_id") String partnerUserId,
 	@JsonProperty("payment_method_type") String paymentMethodType,
+	@JsonProperty("item_name") String itemName,
+	@JsonProperty("quantity") int quantity,
 	@JsonProperty("amount") Amount amount,
+	@JsonProperty("created_at") String createdAt,
 	@JsonProperty("approved_at") String approvedAt
 ) {
 

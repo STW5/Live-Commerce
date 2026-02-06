@@ -53,6 +53,9 @@ public class AuthenticationFilter implements GlobalFilter {
 		return (path.equals("/api/v1/ai") && method.equalsIgnoreCase("POST")) ||
 			path.startsWith("/api/v1/auth/") ||
 			path.startsWith("/api/v2/auth/") ||
+			(path.startsWith("/api/v1/products") && method.equalsIgnoreCase("GET")) ||
+			(path.startsWith("/api/v1/inventories") && method.equalsIgnoreCase("GET")) ||
+			path.startsWith("/api/v1/broadcasts") ||
 			path.startsWith("/swagger-ui/") ||
 			path.startsWith("/v3/api-docs") ||
 			path.startsWith("/actuator");

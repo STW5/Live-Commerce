@@ -35,6 +35,8 @@ public class SecurityConfig {
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(
 					"/api/v1/auth/**", // 인증되지 않은 경로
+					"/api/v1/products/**", // 상품 조회는 인증 없이 접근 가능
+					"/api/v1/inventories/**", // 재고 조회도 인증 없이 접근 가능
 					"/swagger-ui/**",
 					"/v3/api-docs/**",
 					"/actuator/**"
