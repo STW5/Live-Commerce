@@ -4,11 +4,12 @@ import com.live_commerce.order.application.exception.OrderException;
 import com.live_commerce.order.application.exception.OrderExceptionCode;
 import com.live_commerce.order.domain.model.Order;
 import com.live_commerce.order.domain.repository.OrderRepository;
+import com.live_commerce.common.saga.SagaStateRepository;
+import com.live_commerce.events.inventory.InventoryDecreaseRequestEvent;
+import com.live_commerce.events.payment.PaymentCompletedEvent;
 import com.live_commerce.order.kafkaOrder.coupon.CouponUsedEvent;
 import com.live_commerce.order.kafkaOrder.coupon.CouponUsedProducer;
-import com.live_commerce.order.kafkaOrder.payment.PaymentCompletedEvent;
 import com.live_commerce.order.kafkaOrder.product.InventoryEventProducer;
-import com.live_commerce.order.kafkaOrder.product.OrderRequestedInventoryEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,7 @@ public class PaymentSuccessServiceKafka {
     private final OrderRepository orderRepository;
     private final CouponUsedProducer couponUsedProducer;
     private final InventoryEventProducer inventoryEventProducer;
+    private final SagaStateRepository sagaStateRepository;
 
     //TODO KAFKA
     //결제 처리 응답값 가져오기
@@ -48,7 +50,7 @@ public class PaymentSuccessServiceKafka {
 
         //TODO KAFKA 처리
         // 6. 재고 감소 진행
-        OrderRequestedInventoryEvent eventProductDecrease = new OrderRequestedInventoryEvent(order.getId(), order.getProductId(), order.getProductQuantity());
+        InventoryDecreaseRequestEvent eventProductDecrease = InventoryDecreaseRequestEvent.of(order.getId(), order.getProductId(), order.getProductQuantity());
         inventoryEventProducer.sendOrderRequestedInventoryEvent(eventProductDecrease);
         log.info("재고 감소 성공!!");
 
@@ -58,6 +60,25 @@ public class PaymentSuccessServiceKafka {
             CouponUsedEvent eventCoupon = new CouponUsedEvent(order.getCouponId(), userId);
             couponUsedProducer.sendCouponUsedEvent(eventCoupon);
         }
+
+        // 8. Saga 상태 완료 처리
+        updateSagaToCompleted(order.getId());
+
         return "결제 성공 처리 완료";
+    }
+
+    /**
+     * Saga 상태를 COMPLETED로 전환
+     */
+    private void updateSagaToCompleted(UUID orderId) {
+        try {
+            sagaStateRepository.findByAggregateId(orderId).ifPresent(saga -> {
+                saga.complete();
+                sagaStateRepository.save(saga);
+                log.info("[Saga] 상태 완료 처리 - orderId: {}", orderId);
+            });
+        } catch (Exception e) {
+            log.warn("[Saga] 완료 상태 업데이트 실패 (무시) - orderId: {}, error: {}", orderId, e.getMessage());
+        }
     }
 }

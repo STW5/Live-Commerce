@@ -82,6 +82,12 @@ dependencies {
 
 	// kafka
 	implementation 'org.springframework.kafka:spring-kafka'
+
+	// event-schema (공통 이벤트 DTO)
+	implementation project(':event-schema')
+
+	// common-lib (Outbox Pattern, Saga State)
+	implementation project(':common-lib')
 }
 
 dependencyManagement {

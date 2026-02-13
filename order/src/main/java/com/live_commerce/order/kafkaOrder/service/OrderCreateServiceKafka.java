@@ -1,6 +1,8 @@
 package com.live_commerce.order.kafkaOrder.service;
 
 
+import com.live_commerce.common.saga.SagaState;
+import com.live_commerce.common.saga.SagaStateRepository;
 import com.live_commerce.order.application.dto.request.OrderCreateRequest;
 import com.live_commerce.order.application.dto.response.OrderCreateResponse;
 import com.live_commerce.order.application.exception.OrderException;
@@ -33,6 +35,7 @@ public class OrderCreateServiceKafka {
     private final ProductClient productClient;
     private final OrderRepository orderRepository;
     private final CouponClient couponClient;
+    private final SagaStateRepository sagaStateRepository;
 
     //주문 생성 함수
     @Transactional
@@ -97,6 +100,7 @@ public class OrderCreateServiceKafka {
         if( (couponListByUser == null) || (couponListByUser.coupons() == null)){
             Order order = request.toOrder(productTotalPrice, finalPaidPrice, userId);
             Order savedOrder = orderRepository.save(order);
+            createSagaState(savedOrder.getId());
             return OrderCreateResponse.of(savedOrder);
         }
         log.info("로그인 한 유저의 쿠폰 리스트 들고오기");
@@ -112,6 +116,7 @@ public class OrderCreateServiceKafka {
         if (requestCouponId == null) {
             Order order = request.toOrder(productTotalPrice, finalPaidPrice, userId);
             Order savedOrder = orderRepository.save(order);
+            createSagaState(savedOrder.getId());
             return OrderCreateResponse.of(savedOrder);
         }
 
@@ -161,6 +166,21 @@ public class OrderCreateServiceKafka {
         // 8. 생성 주문 저장 - 주문 생성 후, 상품 상태 PENDING
         Order savedOrder = orderRepository.save(order);
         log.info("주문 생성 저장 완료!!!!!");
+        createSagaState(savedOrder.getId());
         return OrderCreateResponse.of(savedOrder);
+    }
+
+    /**
+     * 주문 생성 시 Saga 상태 초기화
+     */
+    private void createSagaState(UUID orderId) {
+        try {
+            SagaState sagaState = SagaState.start("ORDER_CREATION", orderId, null);
+            sagaStateRepository.save(sagaState);
+            log.info("[Saga] 상태 초기화 완료 - orderId: {}", orderId);
+        } catch (Exception e) {
+            // Saga 저장 실패는 주문 플로우에 영향 없음 (보조 기능)
+            log.warn("[Saga] 상태 초기화 실패 (무시) - orderId: {}, error: {}", orderId, e.getMessage());
+        }
     }
 }

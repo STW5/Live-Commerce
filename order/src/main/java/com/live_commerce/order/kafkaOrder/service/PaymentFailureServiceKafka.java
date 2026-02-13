@@ -1,15 +1,17 @@
 package com.live_commerce.order.kafkaOrder.service;
 
+import com.live_commerce.common.saga.SagaState;
+import com.live_commerce.common.saga.SagaStateRepository;
+import com.live_commerce.events.inventory.InventoryRollbackEvent;
+import com.live_commerce.events.order.OrderFailedEvent;
+import com.live_commerce.events.payment.PaymentFailedEvent;
 import com.live_commerce.order.application.exception.OrderException;
 import com.live_commerce.order.application.exception.OrderExceptionCode;
 import com.live_commerce.order.domain.model.Order;
 import com.live_commerce.order.domain.repository.OrderRepository;
-import com.live_commerce.order.kafkaOrder.payment.PaymentFailedEvent;
-import com.live_commerce.order.kafkaOrder.product.InventoryEventProducer;
-import com.live_commerce.order.kafkaOrder.product.InventoryRollbackEvent;
+import com.live_commerce.order.infrastructure.outbox.OutboxEventHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,14 +28,15 @@ import static com.live_commerce.order.domain.model.OrderStatus.FAILED;
 public class PaymentFailureServiceKafka {
 
     private final OrderRepository orderRepository;
-    private final InventoryEventProducer inventoryEventProducer;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OutboxEventHelper outboxEventHelper;
+    private final SagaStateRepository sagaStateRepository;
 
     /**
-     * 결제 실패 이벤트 처리
+     * 결제 실패 이벤트 처리 (보상 트랜잭션)
      * 1. 주문 상태를 FAILED로 변경
-     * 2. 재고 롤백 이벤트 발행 (재고 복구)
-     * 3. order-failed 이벤트 발행 (결제 서비스에 환불 요청)
+     * 2. 재고 롤백 이벤트를 Outbox에 저장 (원자적)
+     * 3. order-failed 이벤트를 Outbox에 저장 (원자적)
+     * → OutboxEventPublisher가 비동기로 Kafka 발행
      */
     @Transactional
     public void handlePaymentFailure(PaymentFailedEvent event) {
@@ -54,40 +57,47 @@ public class PaymentFailureServiceKafka {
 
         // 3. 주문 상태를 FAILED로 변경
         order.changeStatus(FAILED);
-        log.info("[보상 트랜잭션] 주문 상태 변경: {} -> FAILED", order.getStatus());
+        log.info("[보상 트랜잭션] 주문 상태 변경 -> FAILED");
 
-        // 4. 재고 롤백 이벤트 발행 (이미 차감된 재고 복구)
+        // 3-1. Saga 상태 업데이트 (FAILED → COMPENSATING)
+        updateSagaToCompensating(orderId, failureMessage);
+
+        // 4. 재고 롤백 이벤트를 Outbox에 저장 (DB 트랜잭션과 원자적)
         if (order.getProductId() != null && order.getProductQuantity() > 0) {
-            InventoryRollbackEvent rollbackEvent = new InventoryRollbackEvent(
+            InventoryRollbackEvent rollbackEvent = InventoryRollbackEvent.of(
                     orderId,
                     order.getProductId(),
-                    order.getProductQuantity()
+                    order.getProductQuantity(),
+                    "결제 실패: " + failureMessage
             );
-            inventoryEventProducer.sendInventoryRollbackEvent(rollbackEvent);
-            log.info("[보상 트랜잭션] 재고 롤백 이벤트 발행 - productId: {}, quantity: {}",
+            outboxEventHelper.saveEvent("ORDER", orderId, "INVENTORY_ROLLBACK",
+                    "inventory-rollback", rollbackEvent);
+            log.info("[보상 트랜잭션] 재고 롤백 이벤트 Outbox 저장 - productId: {}, quantity: {}",
                     order.getProductId(), order.getProductQuantity());
         }
 
-        // 5. order-failed 이벤트 발행 (결제 서비스에 환불 요청)
-        // 이미 결제가 완료된 상태에서 실패한 경우 환불이 필요
-        OrderFailedEvent orderFailedEvent = new OrderFailedEvent(
-                orderId,
-                "주문 처리 실패: " + failureMessage
-        );
-        kafkaTemplate.send("order-failed", orderId.toString(), orderFailedEvent);
-        log.info("[보상 트랜잭션] order-failed 이벤트 발행 - orderId: {}", orderId);
+        // 5. order-failed 이벤트를 Outbox에 저장 (환불 + 쿠폰 복구 트리거)
+        OrderFailedEvent orderFailedEvent = OrderFailedEvent.of(orderId, "주문 처리 실패: " + failureMessage);
+        outboxEventHelper.saveEvent("ORDER", orderId, "ORDER_FAILED",
+                "order-failed", orderFailedEvent);
+        log.info("[보상 트랜잭션] order-failed 이벤트 Outbox 저장 - orderId: {}", orderId);
 
-        // 6. 쿠폰 복구는 쿠폰 서비스에서 order-failed 이벤트를 수신하여 처리
-        // (현재는 쿠폰 사용 취소 로직이 없으므로 향후 구현 필요)
-
-        log.info("[보상 트랜잭션] 결제 실패 처리 완료 - orderId: {}", orderId);
+        log.info("[보상 트랜잭션] 결제 실패 처리 완료 (Outbox 저장됨, 비동기 발행 대기)");
     }
 
     /**
-     * order-failed 이벤트 record
+     * Saga 상태를 FAILED → COMPENSATING으로 전환
      */
-    public record OrderFailedEvent(
-            UUID orderId,
-            String message
-    ) {}
+    private void updateSagaToCompensating(UUID orderId, String failureMessage) {
+        try {
+            sagaStateRepository.findByAggregateId(orderId).ifPresent(saga -> {
+                saga.fail(failureMessage);
+                saga.startCompensation();
+                sagaStateRepository.save(saga);
+                log.info("[Saga] 상태 변경: FAILED → COMPENSATING - orderId: {}", orderId);
+            });
+        } catch (Exception e) {
+            log.warn("[Saga] 상태 업데이트 실패 (무시) - orderId: {}, error: {}", orderId, e.getMessage());
+        }
+    }
 }

@@ -16,8 +16,8 @@ import com.live_commerce.order.infrastructure.client.request.InventoryIncreaseRe
 import com.live_commerce.order.infrastructure.client.request.PaymentReadyRequestDto;
 import com.live_commerce.order.infrastructure.client.response.PaymentRefundResponseDto;
 import com.live_commerce.order.kafkaOrder.coupon.CouponUsedProducer;
+import com.live_commerce.events.inventory.InventoryRollbackEvent;
 import com.live_commerce.order.kafkaOrder.product.InventoryEventProducer;
-import com.live_commerce.order.kafkaOrder.product.InventoryRollbackEvent;
 import com.live_commerce.order.presentation.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -96,8 +96,8 @@ public class PaymentStatusTransitionServiceKafka {
 
             //TODO KAFKA
             // 2. [재고 복구] 상품 서비스 호출 - 주문의 상품 id와 주문 상품 개수를 보내준다. 재고 복구는 Product에서 로직 처리
-            inventoryEventProducer.sendInventoryRollbackEvent
-                    (new InventoryRollbackEvent(order.getId(),order.getProductId(),order.getProductQuantity()));
+            inventoryEventProducer.sendInventoryRollbackEvent(
+                    InventoryRollbackEvent.of(order.getId(), order.getProductId(), order.getProductQuantity(), "사용자 결제 취소"));
             log.info("결제 취소 후 재고 복구완료");
             log.info("결제 취소 완료");
 

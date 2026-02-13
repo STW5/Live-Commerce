@@ -1,6 +1,7 @@
 package com.live_commerce.order.kafkaOrder.payment;
 
-import com.live_commerce.order.application.service.OrderService;
+import com.live_commerce.events.payment.PaymentCompletedEvent;
+import com.live_commerce.events.payment.PaymentFailedEvent;
 import com.live_commerce.order.kafkaOrder.service.PaymentFailureServiceKafka;
 import com.live_commerce.order.kafkaOrder.service.PaymentSuccessServiceKafka;
 import org.springframework.kafka.annotation.KafkaListener;

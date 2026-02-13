@@ -1,5 +1,8 @@
 rootProject.name = 'Live-Commerce'
 
+include ':event-schema'
+include ':common-lib'
+
 include ':eureka'
 include ':config'
 include ':gateway'
