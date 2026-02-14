@@ -1,4 +1,4 @@
-package com.live_commerce.order.domain.model;
+package com.live_commerce.order.adapter.out.persistence;
 
 import static com.querydsl.core.types.PathMetadataFactory.*;
 
@@ -10,16 +10,16 @@ import com.querydsl.core.types.Path;
 
 
 /**
- * QOrder is a Querydsl query type for Order
+ * QOrderJpaEntity is a Querydsl query type for OrderJpaEntity
  */
 @Generated("com.querydsl.codegen.DefaultEntitySerializer")
-public class QOrder extends EntityPathBase<Order> {
+public class QOrderJpaEntity extends EntityPathBase<OrderJpaEntity> {
 
-    private static final long serialVersionUID = 1058139852L;
+    private static final long serialVersionUID = -1714282325L;
 
-    public static final QOrder order = new QOrder("order1");
+    public static final QOrderJpaEntity orderJpaEntity = new QOrderJpaEntity("orderJpaEntity");
 
-    public final com.live_commerce.order.presentation.common.QBaseEntity _super = new com.live_commerce.order.presentation.common.QBaseEntity(this);
+    public final QBaseJpaEntity _super = new QBaseJpaEntity(this);
 
     public final ComparablePath<java.util.UUID> broadcastId = createComparable("broadcastId", java.util.UUID.class);
 
@@ -52,7 +52,7 @@ public class QOrder extends EntityPathBase<Order> {
 
     public final StringPath requirement = createString("requirement");
 
-    public final EnumPath<OrderStatus> status = createEnum("status", OrderStatus.class);
+    public final EnumPath<com.live_commerce.order.domain.model.OrderStatus> status = createEnum("status", com.live_commerce.order.domain.model.OrderStatus.class);
 
     //inherited
     public final DateTimePath<java.time.LocalDateTime> updatedAt = _super.updatedAt;
@@ -62,16 +62,16 @@ public class QOrder extends EntityPathBase<Order> {
 
     public final ComparablePath<java.util.UUID> userId = createComparable("userId", java.util.UUID.class);
 
-    public QOrder(String variable) {
-        super(Order.class, forVariable(variable));
+    public QOrderJpaEntity(String variable) {
+        super(OrderJpaEntity.class, forVariable(variable));
     }
 
-    public QOrder(Path<? extends Order> path) {
+    public QOrderJpaEntity(Path<? extends OrderJpaEntity> path) {
         super(path.getType(), path.getMetadata());
     }
 
-    public QOrder(PathMetadata metadata) {
-        super(Order.class, metadata);
+    public QOrderJpaEntity(PathMetadata metadata) {
+        super(OrderJpaEntity.class, metadata);
     }
 
 }
