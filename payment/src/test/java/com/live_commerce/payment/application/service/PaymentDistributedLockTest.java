@@ -15,16 +15,19 @@ import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import com.live_commerce.payment.application.port.KakaoPayClient;
+import com.live_commerce.payment.application.port.out.PaymentGatewayPort;
 import com.live_commerce.payment.domain.model.Payment;
-import com.live_commerce.payment.domain.repository.PaymentRepository;
+import com.live_commerce.payment.infrastructure.adapter.persistence.PaymentJpaEntity;
+import com.live_commerce.payment.infrastructure.adapter.persistence.PaymentJpaRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@TestPropertySource(properties = "spring.datasource.url=jdbc:h2:mem:distlocktestdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE")
 @Slf4j
 public class PaymentDistributedLockTest {
 
@@ -32,10 +35,10 @@ public class PaymentDistributedLockTest {
 	private RedissonClient redissonClient;
 
 	@Autowired
-	private PaymentRepository paymentRepository;
+	private PaymentJpaRepository paymentJpaRepository;
 
 	@MockitoBean
-	private KakaoPayClient kakaoPayClient;
+	private PaymentGatewayPort paymentGatewayPort;
 
 	@DisplayName("leaseTime 이후 다른 스레드가 락 재획득 - DB 저장 확인")
 	@Test
@@ -49,7 +52,7 @@ public class PaymentDistributedLockTest {
 			try {
 				if (lock.tryLock(100, 1000, TimeUnit.MILLISECONDS)) {
 					Payment p1 = Payment.of(UUID.randomUUID(), orderId1, BigDecimal.valueOf(1000));
-					paymentRepository.save(p1);
+					paymentJpaRepository.save(PaymentJpaEntity.from(p1));
 					Thread.sleep(2000);
 				}
 			} catch (Exception e) {
@@ -68,7 +71,7 @@ public class PaymentDistributedLockTest {
 				Thread.sleep(1500);
 				if (lock.tryLock(100, 1000, TimeUnit.MILLISECONDS)) {
 					Payment p2 = Payment.of(UUID.randomUUID(), orderId2, BigDecimal.valueOf(2000));
-					paymentRepository.save(p2);
+					paymentJpaRepository.save(PaymentJpaEntity.from(p2));
 					lock.unlock();
 				}
 			} catch (Exception e) {
@@ -82,8 +85,8 @@ public class PaymentDistributedLockTest {
 		executor.shutdown();
 		executor.awaitTermination(5, TimeUnit.SECONDS);
 
-		assertTrue(paymentRepository.findByOrderId(orderId1).isPresent());
-		assertTrue(paymentRepository.findByOrderId(orderId2).isPresent());
+		assertTrue(paymentJpaRepository.findByOrderId(orderId1).isPresent());
+		assertTrue(paymentJpaRepository.findByOrderId(orderId2).isPresent());
 	}
 
 	@DisplayName("leaseTime 초과 후 unlock 예외 확인")
@@ -188,7 +191,7 @@ public class PaymentDistributedLockTest {
 					if (lock.tryLock(100, 1000, TimeUnit.MILLISECONDS)) {
 						log.info("[RETRY] 락 획득 성공");
 						Payment p = Payment.of(UUID.randomUUID(), retryOrderId, BigDecimal.valueOf(7777));
-						paymentRepository.save(p);
+						paymentJpaRepository.save(PaymentJpaEntity.from(p));
 						lock.unlock();
 						break;
 					} else {
@@ -208,7 +211,7 @@ public class PaymentDistributedLockTest {
 		executor.shutdown();
 		executor.awaitTermination(5, TimeUnit.SECONDS);
 
-		Optional<Payment> result = paymentRepository.findByOrderId(retryOrderId);
+		Optional<PaymentJpaEntity> result = paymentJpaRepository.findByOrderId(retryOrderId);
 		log.info("[TEST] 시도 횟수: {}", attemptCount.get());
 		log.info("[TEST] 저장 여부: {}", result.isPresent());
 

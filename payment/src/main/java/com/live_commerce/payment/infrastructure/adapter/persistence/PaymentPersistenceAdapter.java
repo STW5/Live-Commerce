@@ -11,43 +11,48 @@ import com.live_commerce.payment.application.dto.request.PaymentSearchCondition;
 import com.live_commerce.payment.application.port.out.LoadPaymentPort;
 import com.live_commerce.payment.application.port.out.SavePaymentPort;
 import com.live_commerce.payment.domain.model.Payment;
-import com.live_commerce.payment.domain.repository.PaymentRepository;
 
 import lombok.RequiredArgsConstructor;
 
 /**
  * 결제 영속성 어댑터
  * - LoadPaymentPort, SavePaymentPort 구현
- * - JPA Repository를 활용한 데이터 접근
+ * - PaymentJpaEntity ↔ Payment 도메인 모델 변환 처리
  */
 @Component
 @RequiredArgsConstructor
 public class PaymentPersistenceAdapter implements LoadPaymentPort, SavePaymentPort {
 
-	private final PaymentRepository paymentRepository;
+	private final PaymentJpaRepository paymentJpaRepository;
 
 	@Override
 	public Optional<Payment> loadById(UUID paymentId) {
-		return paymentRepository.findById(paymentId);
+		return paymentJpaRepository.findById(paymentId)
+			.map(PaymentJpaEntity::toDomain);
 	}
 
 	@Override
 	public Optional<Payment> loadByOrderId(UUID orderId) {
-		return paymentRepository.findByOrderId(orderId);
+		return paymentJpaRepository.findByOrderId(orderId)
+			.map(PaymentJpaEntity::toDomain);
 	}
 
 	@Override
 	public List<Payment> search(PaymentSearchCondition condition, Pageable pageable) {
-		return paymentRepository.searchPayment(condition, pageable);
+		return paymentJpaRepository.searchPayment(condition, pageable).stream()
+			.map(PaymentJpaEntity::toDomain)
+			.toList();
 	}
 
 	@Override
 	public long count(PaymentSearchCondition condition) {
-		return paymentRepository.countPayment(condition);
+		return paymentJpaRepository.countPayment(condition);
 	}
 
 	@Override
 	public Payment save(Payment payment) {
-		return paymentRepository.save(payment);
+		PaymentJpaEntity entity = PaymentJpaEntity.from(payment);
+		PaymentJpaEntity saved = paymentJpaRepository.save(entity);
+		return saved.toDomain();
 	}
 }

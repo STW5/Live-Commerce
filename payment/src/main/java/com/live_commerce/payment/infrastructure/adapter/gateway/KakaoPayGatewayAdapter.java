@@ -5,8 +5,8 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
-import com.live_commerce.payment.application.port.KakaoPayClient;
 import com.live_commerce.payment.application.port.out.PaymentGatewayPort;
+import com.live_commerce.payment.infrastructure.client.KakaoPayClientImpl;
 import com.live_commerce.payment.infrastructure.client.dto.KakaoPayApproveDto;
 import com.live_commerce.payment.infrastructure.client.dto.KakaoPayReadyDto;
 
@@ -22,11 +22,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class KakaoPayGatewayAdapter implements PaymentGatewayPort {
 
-	private final KakaoPayClient kakaoPayClient;
+	private final KakaoPayClientImpl kakaoPayClientImpl;
 
 	@Override
 	public PaymentReadyResult ready(UUID userId, UUID orderId, BigDecimal amount, String itemName) {
-		KakaoPayReadyDto dto = kakaoPayClient.requestKakaoPayReady(userId, orderId, amount, itemName);
+		KakaoPayReadyDto dto = kakaoPayClientImpl.requestKakaoPayReady(userId, orderId, amount, itemName);
 		return new PaymentReadyResult(
 			dto.tid(),
 			dto.nextRedirectPcUrl(),
@@ -36,7 +36,7 @@ public class KakaoPayGatewayAdapter implements PaymentGatewayPort {
 
 	@Override
 	public PaymentApproveResult approve(String tid, String pgToken, UUID orderId, UUID userId) {
-		KakaoPayApproveDto dto = kakaoPayClient.requestKakaoPayApprove(
+		KakaoPayApproveDto dto = kakaoPayClientImpl.requestKakaoPayApprove(
 			tid,
 			pgToken,
 			orderId.toString(),
@@ -66,6 +66,6 @@ public class KakaoPayGatewayAdapter implements PaymentGatewayPort {
 
 	@Override
 	public void cancel(String tid, BigDecimal amount) {
-		kakaoPayClient.requestKakaoPayCancel(tid, amount);
+		kakaoPayClientImpl.requestKakaoPayCancel(tid, amount);
 	}
 }

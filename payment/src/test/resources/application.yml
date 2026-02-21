@@ -1,0 +1,7 @@
+spring:
+  config:
+    import: "optional:configserver:"  # 테스트 환경: config server 없어도 기동
+  application:
+    name: payment
+  profiles:
+    active: test

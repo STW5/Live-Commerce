@@ -59,12 +59,12 @@ public class ReadyPaymentService implements ReadyPaymentUseCase {
 		// 결제 엔티티 생성
 		Payment payment = Payment.of(command.userId(), command.orderId(), command.amount());
 		payment.assignTid(readyResult.tid());
-		savePaymentPort.save(payment);
+		Payment savedPayment = savePaymentPort.save(payment);
 
 		// 결제 만료 타임아웃 설정 (10분)
 		managePaymentExpirationPort.setExpiration(
 			command.orderId(),
-			payment.getId(),
+			savedPayment.getId(),
 			PAYMENT_TIMEOUT_MINUTES,
 			TimeUnit.MINUTES
 		);

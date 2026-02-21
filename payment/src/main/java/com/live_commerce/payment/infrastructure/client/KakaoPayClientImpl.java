@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import com.live_commerce.payment.application.exception.KakaoPayApiException;
-import com.live_commerce.payment.application.port.KakaoPayClient;
 import com.live_commerce.payment.infrastructure.client.dto.KakaoPayApproveDto;
 import com.live_commerce.payment.infrastructure.client.dto.KakaoPayCancelDto;
 import com.live_commerce.payment.infrastructure.client.dto.KakaoPayReadyDto;
@@ -24,7 +23,7 @@ import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
-public class KakaoPayClientImpl implements KakaoPayClient {
+public class KakaoPayClientImpl {
 
 	private final RestTemplate restTemplate;
 	private final RetryTemplate retryTemplate;
@@ -38,7 +37,6 @@ public class KakaoPayClientImpl implements KakaoPayClient {
 	@Value("${kakao.pay.cid}")
 	private String kakaoPayCid;
 
-	@Override
 	public KakaoPayReadyDto requestKakaoPayReady(UUID userId, UUID orderId, BigDecimal amount, String itemName) {
 		Map<String, Object> params = new HashMap<>();
 		params.put("cid", kakaoPayCid);
@@ -72,7 +70,6 @@ public class KakaoPayClientImpl implements KakaoPayClient {
 		}
 	}
 
-	@Override
 	public KakaoPayApproveDto requestKakaoPayApprove(String tid, String pgToken, String orderId, String userId) {
 		Map<String, Object> params = new HashMap<>();
 		params.put("cid", kakaoPayCid);
@@ -101,7 +98,6 @@ public class KakaoPayClientImpl implements KakaoPayClient {
 		}
 	}
 
-	@Override
 	public KakaoPayCancelDto requestKakaoPayCancel(String tid, BigDecimal cancelAmount) {
 		Map<String, Object> params = new HashMap<>();
 		params.put("cid", kakaoPayCid);

@@ -1,4 +1,4 @@
-package com.live_commerce.payment.infrastructure.kafka.consumer;
+package com.live_commerce.payment.infrastructure.adapter.in.kafka;
 
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
@@ -9,20 +9,26 @@ import org.springframework.stereotype.Component;
 
 import com.live_commerce.payment.application.exception.CustomException;
 import com.live_commerce.payment.application.exception.KakaoPayApiException;
-import com.live_commerce.payment.application.service.PaymentServiceV2;
+import com.live_commerce.payment.application.port.in.CompensatePaymentUseCase;
+import com.live_commerce.payment.application.port.in.CompensatePaymentUseCase.CompensatePaymentCommand;
 import com.live_commerce.payment.infrastructure.kafka.event.OrderFailedEvent;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * 주문 실패 Kafka 컨슈머 - Hexagonal Inbound Adapter
+ * - CompensatePaymentUseCase를 통한 보상 트랜잭션 처리
+ * - 기존 {@code PaymentEventConsumer}(@Deprecated) 대체
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class PaymentEventConsumer {
+public class OrderFailedKafkaConsumer {
 
-	private final PaymentServiceV2 paymentServiceV2;
+	private final CompensatePaymentUseCase compensatePaymentUseCase;
 
-	@KafkaListener(topics = "order-failed", groupId = "${spring.application.name}")
+	@KafkaListener(topics = "order-failed", groupId = "${spring.application.name}-hexagonal")
 	public void listenOrderFailed(
 		@Payload OrderFailedEvent event,
 		@Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
@@ -33,10 +39,10 @@ public class PaymentEventConsumer {
 			event.orderId(), event.message(), topic, offset);
 
 		try {
-			// 보상 트랜잭션 실행
-			paymentServiceV2.compensateRefundByOrderId(event.orderId(), event.message());
+			compensatePaymentUseCase.compensate(
+				new CompensatePaymentCommand(event.orderId(), event.message())
+			);
 
-			// 성공 시 ACK
 			if (acknowledgment != null) {
 				acknowledgment.acknowledge();
 			}
@@ -47,26 +53,20 @@ public class PaymentEventConsumer {
 			log.error("[Kafka] 보상 처리 실패 (비즈니스 오류) - orderId: {}, code: {}, message: {}",
 				event.orderId(), e.getExceptionCode(), e.getMessage());
 
-			// 비즈니스 예외는 재시도해도 성공 가능성 낮음 -> ACK 처리 (DLQ로 이동)
 			if (acknowledgment != null) {
 				acknowledgment.acknowledge();
 			}
-			throw e; // DefaultErrorHandler가 DLQ로 전송
+			throw e;
 
 		} catch (KakaoPayApiException e) {
 			log.error("[Kafka] 카카오페이 환불 실패 (일시적 오류 가능) - orderId: {}, message: {}",
 				event.orderId(), e.getMessage());
-
-			// 네트워크 오류 등 일시적 문제 가능 -> 재시도 (ACK 하지 않음)
-			throw e; // DefaultErrorHandler가 Exponential Backoff로 재시도
+			throw e;
 
 		} catch (Exception e) {
 			log.error("[Kafka] 예상치 못한 오류 발생 - orderId: {}, message: {}",
 				event.orderId(), e.getMessage(), e);
-
-			// 알 수 없는 오류 -> 재시도 (ACK 하지 않음)
 			throw e;
 		}
 	}
 }
-

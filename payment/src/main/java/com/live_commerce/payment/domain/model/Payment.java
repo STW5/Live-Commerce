@@ -6,56 +6,33 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-import org.hibernate.annotations.UuidGenerator;
-
 import com.live_commerce.payment.domain.event.PaymentCompletedDomainEvent;
 import com.live_commerce.payment.domain.event.PaymentDomainEvent;
 import com.live_commerce.payment.domain.event.PaymentFailedDomainEvent;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 결제 Aggregate Root
+ * 결제 Aggregate Root - 순수 Java 도메인 모델 (JPA 의존 없음)
  * - 결제 도메인의 중심 엔티티
  * - 모든 비즈니스 규칙과 상태 전이를 관리
  * - 도메인 이벤트를 발생시키는 책임을 가짐
+ * - JPA 엔티티: {@code infrastructure.adapter.persistence.PaymentJpaEntity}
  */
-@Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "p_payment")
-public class Payment extends BaseEntity {
+public class Payment {
 
-	@Transient
 	private final List<PaymentDomainEvent> domainEvents = new ArrayList<>();
 
-	@Id
-	@UuidGenerator
 	private UUID id;
-
-	@Column(nullable = false, unique = true)
 	private UUID orderId;
-
-	@Column(nullable = false)
 	private UUID userId;
-
-	@Column(nullable = false, precision = 10, scale = 2)
 	private BigDecimal amount;
-
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
 	private PaymentStatus status;
-
-	private String tid; // 카카오페이 결제 시도 후 발급받을 TID
+	private String tid;
 
 	public void assignTid(String tid) {
 		if (tid == null || tid.isBlank()) {
@@ -68,21 +45,18 @@ public class Payment extends BaseEntity {
 	public void complete() {
 		validateStatusTransition(PaymentStatus.COMPLETED);
 		this.status = PaymentStatus.COMPLETED;
-		// 도메인 이벤트 발행
 		registerEvent(PaymentCompletedDomainEvent.of(this.orderId, this.id, this.amount));
 	}
 
 	public void fail() {
 		validateStatusTransition(PaymentStatus.FAILED);
 		this.status = PaymentStatus.FAILED;
-		// 도메인 이벤트 발행
 		registerEvent(PaymentFailedDomainEvent.of(this.orderId, this.id, "결제 실패"));
 	}
 
 	public void failWithReason(String reason) {
 		validateStatusTransition(PaymentStatus.FAILED);
 		this.status = PaymentStatus.FAILED;
-		// 도메인 이벤트 발행
 		registerEvent(PaymentFailedDomainEvent.of(this.orderId, this.id, reason));
 	}
 
@@ -139,7 +113,7 @@ public class Payment extends BaseEntity {
 		};
 	}
 
-	// 정적 팩토리 메서드
+	// 정적 팩토리 메서드 - 신규 결제 생성
 	public static Payment of(UUID userId, UUID orderId, BigDecimal amount) {
 		if (userId == null || orderId == null) {
 			throw new IllegalArgumentException("userId와 orderId는 필수입니다");
@@ -148,6 +122,15 @@ public class Payment extends BaseEntity {
 			throw new IllegalArgumentException("결제 금액은 0보다 커야 합니다");
 		}
 		return new Payment(userId, orderId, amount, PaymentStatus.PENDING);
+	}
+
+	// 정적 팩토리 메서드 - 저장된 결제 복원 (Adapter Layer에서 호출)
+	public static Payment reconstitute(UUID id, UUID orderId, UUID userId, BigDecimal amount,
+		PaymentStatus status, String tid) {
+		Payment payment = new Payment(userId, orderId, amount, status);
+		payment.id = id;
+		payment.tid = tid;
+		return payment;
 	}
 
 	// 프라이빗 생성자
@@ -170,6 +153,4 @@ public class Payment extends BaseEntity {
 	public void clearDomainEvents() {
 		this.domainEvents.clear();
 	}
-
 }
-

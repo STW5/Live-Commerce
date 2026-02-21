@@ -1,4 +1,4 @@
-package com.live_commerce.payment.domain.model;
+package com.live_commerce.payment.infrastructure.adapter.persistence;
 
 import java.time.LocalDateTime;
 
@@ -14,14 +14,13 @@ import jakarta.persistence.MappedSuperclass;
 import lombok.Getter;
 
 /**
- * @deprecated 헥사고날 아키텍처 전환으로 {@code infrastructure.adapter.persistence.BaseJpaEntity}로 대체.
- *             Domain Layer에서 JPA 의존 제거 완료.
+ * JPA 감사 베이스 엔티티 - Adapter Layer 전용
+ * Domain Layer의 BaseEntity(@Deprecated)를 대체
  */
-@Deprecated(since = "hexagonal-ddd-payment", forRemoval = true)
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
-public abstract class BaseEntity {
+public abstract class BaseJpaEntity {
 
 	@CreatedDate
 	@Column(updatable = false, nullable = false)
@@ -49,5 +48,4 @@ public abstract class BaseEntity {
 		this.deletedAt = LocalDateTime.now();
 		this.deletedBy = deletedBy;
 	}
-
 }

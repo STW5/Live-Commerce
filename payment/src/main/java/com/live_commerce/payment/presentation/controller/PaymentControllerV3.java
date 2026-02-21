@@ -22,26 +22,51 @@ import com.live_commerce.payment.application.dto.request.PaymentSearchCondition;
 import com.live_commerce.payment.application.dto.response.PaymentApproveResponseDto;
 import com.live_commerce.payment.application.dto.response.PaymentGetResponseDto;
 import com.live_commerce.payment.application.dto.response.PaymentReadyResponseDto;
-import com.live_commerce.payment.application.service.PaymentServiceV2;
+import com.live_commerce.payment.application.port.in.ApprovePaymentUseCase;
+import com.live_commerce.payment.application.port.in.ApprovePaymentUseCase.ApprovePaymentCommand;
+import com.live_commerce.payment.application.port.in.CancelPaymentUseCase;
+import com.live_commerce.payment.application.port.in.CancelPaymentUseCase.CancelPaymentCommand;
+import com.live_commerce.payment.application.port.in.GetPaymentUseCase;
+import com.live_commerce.payment.application.port.in.GetPaymentUseCase.GetPaymentQuery;
+import com.live_commerce.payment.application.port.in.GetPaymentUseCase.SearchPaymentQuery;
+import com.live_commerce.payment.application.port.in.ReadyPaymentUseCase;
+import com.live_commerce.payment.application.port.in.ReadyPaymentUseCase.ReadyPaymentCommand;
+import com.live_commerce.payment.application.port.in.RefundPaymentUseCase;
+import com.live_commerce.payment.application.port.in.RefundPaymentUseCase.RefundPaymentCommand;
 import com.live_commerce.payment.infrastructure.common.ResponseUtil;
 import com.live_commerce.payment.infrastructure.security.RequestUserDetails;
 import com.live_commerce.payment.presentation.common.ApiResponse;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 결제 컨트롤러 V3 - Hexagonal Architecture 기반
+ * Use Case 인터페이스를 직접 호출하는 Presentation Layer 어댑터
+ */
 @RestController
-@RequestMapping("/api/v2/payments")
+@RequestMapping("/api/v3/payments")
 @RequiredArgsConstructor
-public class PaymentControllerV2 {
+public class PaymentControllerV3 {
 
-	private final PaymentServiceV2 paymentServiceV2;
+	private final ReadyPaymentUseCase readyPaymentUseCase;
+	private final ApprovePaymentUseCase approvePaymentUseCase;
+	private final RefundPaymentUseCase refundPaymentUseCase;
+	private final GetPaymentUseCase getPaymentUseCase;
+	private final CancelPaymentUseCase cancelPaymentUseCase;
 
 	@PostMapping("/ready")
 	public ResponseEntity<ApiResponse<PaymentReadyResponseDto>> readyPayment(
-		@AuthenticationPrincipal RequestUserDetails requestUserDetails,
+		@AuthenticationPrincipal RequestUserDetails userDetails,
 		@RequestBody PaymentReadyRequestDto requestDto
 	) {
-		PaymentReadyResponseDto response = paymentServiceV2.readyPayment(requestUserDetails, requestDto);
+		PaymentReadyResponseDto response = readyPaymentUseCase.ready(
+			new ReadyPaymentCommand(
+				userDetails.getUserId(),
+				requestDto.orderId(),
+				requestDto.amount(),
+				requestDto.itemName()
+			)
+		);
 		return ResponseUtil.success(response);
 	}
 
@@ -50,9 +75,13 @@ public class PaymentControllerV2 {
 		@AuthenticationPrincipal RequestUserDetails userDetails,
 		@RequestBody PaymentApproveRequestDto requestDto
 	) {
-		PaymentApproveResponseDto response = paymentServiceV2.approvePayment(
-			requestDto,
-			userDetails.getUserId()
+		PaymentApproveResponseDto response = approvePaymentUseCase.approve(
+			new ApprovePaymentCommand(
+				userDetails.getUserId(),
+				UUID.fromString(requestDto.orderId()),
+				requestDto.tid(),
+				requestDto.pgToken()
+			)
 		);
 		return ResponseUtil.success(response);
 	}
@@ -62,7 +91,13 @@ public class PaymentControllerV2 {
 		@PathVariable UUID paymentId,
 		@AuthenticationPrincipal RequestUserDetails userDetails
 	) {
-		PaymentGetResponseDto response = paymentServiceV2.getPayment(paymentId, userDetails);
+		PaymentGetResponseDto response = getPaymentUseCase.getById(
+			new GetPaymentQuery(
+				paymentId,
+				userDetails.getUserId(),
+				hasMasterRole(userDetails)
+			)
+		);
 		return ResponseUtil.success(response);
 	}
 
@@ -72,7 +107,14 @@ public class PaymentControllerV2 {
 		@AuthenticationPrincipal RequestUserDetails userDetails,
 		@PageableDefault(size = 10) Pageable pageable
 	) {
-		Page<PaymentGetResponseDto> result = paymentServiceV2.getPayments(condition, userDetails, pageable);
+		Page<PaymentGetResponseDto> result = getPaymentUseCase.search(
+			new SearchPaymentQuery(
+				condition,
+				userDetails.getUserId(),
+				hasMasterRole(userDetails)
+			),
+			pageable
+		);
 		return ResponseUtil.success(result);
 	}
 
@@ -81,7 +123,13 @@ public class PaymentControllerV2 {
 		@PathVariable UUID orderId,
 		@AuthenticationPrincipal RequestUserDetails userDetails
 	) {
-		PaymentRefundResponseDto response = paymentServiceV2.refundPaymentByOrderId(orderId, userDetails);
+		PaymentRefundResponseDto response = refundPaymentUseCase.refund(
+			new RefundPaymentCommand(
+				orderId,
+				userDetails.getUserId(),
+				hasMasterRole(userDetails)
+			)
+		);
 		return ResponseUtil.success(response);
 	}
 
@@ -90,8 +138,18 @@ public class PaymentControllerV2 {
 		@PathVariable UUID orderId,
 		@AuthenticationPrincipal RequestUserDetails userDetails
 	) {
-		paymentServiceV2.cancelPaymentByOrderId(orderId, userDetails);
+		cancelPaymentUseCase.cancel(
+			new CancelPaymentCommand(
+				orderId,
+				userDetails.getUserId(),
+				hasMasterRole(userDetails)
+			)
+		);
 		return ResponseUtil.noContent();
 	}
 
+	private boolean hasMasterRole(RequestUserDetails userDetails) {
+		return userDetails.getAuthorities().stream()
+			.anyMatch(auth -> auth.getAuthority().equals("ROLE_MASTER"));
+	}
 }

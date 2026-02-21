@@ -1,5 +1,8 @@
 spring:
 
+  config:
+    import: "optional:configserver:"  # 테스트 환경: config server 연결 선택적으로
+
   cloud:
     config:
       enabled: false                # config server 비활성화
@@ -12,7 +15,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: create
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
@@ -22,10 +25,20 @@ spring:
   sql:
     init:
       mode: never  # schema.sql 사용 안 함
+
   data:
     redis:
       host: localhost
       port: 6379
+
+  kafka:
+    bootstrap-servers: localhost:9092  # 테스트용 더미 (Kafka 인프라 불필요)
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
 
 logging:
   level:
@@ -35,4 +48,7 @@ logging:
 gateway:
   base-url: http://localhost:9999
 
-
+kakao:
+  pay:
+    secret-key: test-secret-key
+    cid: TC0ONETIME

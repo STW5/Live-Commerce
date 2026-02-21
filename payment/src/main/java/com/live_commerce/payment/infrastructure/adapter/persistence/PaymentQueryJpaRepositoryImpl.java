@@ -1,28 +1,29 @@
-package com.live_commerce.payment.domain.repository;
+package com.live_commerce.payment.infrastructure.adapter.persistence;
 
 import java.util.List;
 
 import org.springframework.data.domain.Pageable;
 
 import com.live_commerce.payment.application.dto.request.PaymentSearchCondition;
-import com.live_commerce.payment.domain.model.Payment;
-import com.live_commerce.payment.domain.model.QPayment;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 결제 QueryDSL Repository 구현체 - Adapter Layer 전용
+ * {@code domain/repository/PaymentQueryRepositoryImpl}를 대체 (QPaymentJpaEntity 사용)
+ */
 @RequiredArgsConstructor
-public class PaymentQueryRepositoryImpl implements PaymentQueryRepository {
+public class PaymentQueryJpaRepositoryImpl implements PaymentQueryJpaRepository {
 
 	private final JPAQueryFactory queryFactory;
 
 	@Override
-	public List<Payment> searchPayment(PaymentSearchCondition condition, Pageable pageable) {
-		QPayment payment = QPayment.payment;
+	public List<PaymentJpaEntity> searchPayment(PaymentSearchCondition condition, Pageable pageable) {
+		QPaymentJpaEntity payment = QPaymentJpaEntity.paymentJpaEntity;
 		BooleanBuilder builder = new BooleanBuilder();
 
-		// 삭제되지 않은 항목만 조회
 		builder.and(payment.deletedStatus.isFalse());
 
 		if (condition.userId() != null) {
@@ -52,7 +53,7 @@ public class PaymentQueryRepositoryImpl implements PaymentQueryRepository {
 
 	@Override
 	public long countPayment(PaymentSearchCondition condition) {
-		QPayment payment = QPayment.payment;
+		QPaymentJpaEntity payment = QPaymentJpaEntity.paymentJpaEntity;
 		BooleanBuilder builder = new BooleanBuilder();
 
 		builder.and(payment.deletedStatus.isFalse());
@@ -79,6 +80,4 @@ public class PaymentQueryRepositoryImpl implements PaymentQueryRepository {
 			.where(builder)
 			.fetchOne();
 	}
-
-
 }

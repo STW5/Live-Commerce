@@ -7,8 +7,10 @@ import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.live_commerce.payment.domain.model.Payment;
 import com.live_commerce.payment.domain.model.PaymentStatus;
-import com.live_commerce.payment.domain.repository.PaymentRepository;
+import com.live_commerce.payment.infrastructure.adapter.persistence.PaymentJpaEntity;
+import com.live_commerce.payment.infrastructure.adapter.persistence.PaymentJpaRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class PaymentExpirationListener implements MessageListener {
 
-	private final PaymentRepository paymentRepository;
+	private final PaymentJpaRepository paymentJpaRepository;
 
 	@Override
 	@Transactional
@@ -34,9 +36,11 @@ public class PaymentExpirationListener implements MessageListener {
 				UUID orderId = UUID.fromString(expiredKey.replace("payment:expire:", ""));
 				log.info("Redis TTL 만료 감지됨 – orderId: {}", orderId);
 
-				paymentRepository.findByOrderIdAndStatus(orderId, PaymentStatus.PENDING)
-					.ifPresent(payment -> {
+				paymentJpaRepository.findByOrderIdAndStatus(orderId, PaymentStatus.PENDING)
+					.ifPresent(jpaEntity -> {
+						Payment payment = jpaEntity.toDomain();
 						payment.fail();
+						paymentJpaRepository.save(PaymentJpaEntity.from(payment));
 						log.info("자동 실패 처리 완료 – paymentId: {}, orderId: {}", payment.getId(), orderId);
 					});
 			} catch (Exception e) {
