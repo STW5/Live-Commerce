@@ -1,24 +1,21 @@
-package com.live_commerce.ai.domain.repository;
+package com.live_commerce.ai.adapter.out.persistence;
 
 import java.util.List;
-import java.util.UUID;
 
 import com.live_commerce.ai.application.dto.request.AiSearchCondition;
-import com.live_commerce.ai.domain.model.AI;
-import com.live_commerce.ai.domain.model.QAI;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public class AiQueryRepositoryImpl implements AiQueryRepository {
+public class AiJpaRepositoryImpl implements AiQueryJpaRepository {
 
 	private final JPAQueryFactory queryFactory;
 
 	@Override
-	public List<AI> searchAi(AiSearchCondition condition) {
-		QAI ai = QAI.aI;
+	public List<AiJpaEntity> searchAi(AiSearchCondition condition) {
+		QAiJpaEntity ai = QAiJpaEntity.aiJpaEntity;
 		BooleanBuilder builder = new BooleanBuilder();
 
 		if (condition.liveBroadcastId() != null) {

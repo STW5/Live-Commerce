@@ -1,45 +1,46 @@
 package com.live_commerce.ai.domain.model;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
-import org.hibernate.annotations.UuidGenerator;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "p_ai")
 public class AI extends BaseEntity {
 
-	@Id
-	@UuidGenerator
 	private UUID id;
-
-	@Column(nullable = false)
 	private UUID liveBroadcastId;
-
-	@Column(nullable = false, columnDefinition = "TEXT")
 	private String requestPayload;
-
-	@Column(nullable = false, columnDefinition = "TEXT")
 	private String responsePayload;
 
-	// 정적 팩토리 메서드
+	// 신규 생성용 팩토리 메서드 (id 없음 — Adapter에서 생성)
 	public static AI of(UUID liveBroadcastId, String requestPayload, String responsePayload) {
-		return new AI(liveBroadcastId, requestPayload, responsePayload);
+		AI ai = new AI();
+		ai.liveBroadcastId = liveBroadcastId;
+		ai.requestPayload = requestPayload;
+		ai.responsePayload = responsePayload;
+		return ai;
 	}
 
-	// 프라이빗 생성자
-	private AI(UUID liveBroadcastId, String requestPayload, String responsePayload) {
-		this.liveBroadcastId = liveBroadcastId;
-		this.requestPayload = requestPayload;
-		this.responsePayload = responsePayload;
+	// 복원용 팩토리 메서드 (DB에서 로드 시 Adapter가 사용)
+	public static AI of(UUID id, UUID liveBroadcastId, String requestPayload, String responsePayload,
+			LocalDateTime createdAt, LocalDateTime updatedAt, boolean deletedStatus,
+			LocalDateTime deletedAt, String createdBy, String updatedBy, String deletedBy) {
+		AI ai = new AI();
+		ai.id = id;
+		ai.liveBroadcastId = liveBroadcastId;
+		ai.requestPayload = requestPayload;
+		ai.responsePayload = responsePayload;
+		ai.createdAt = createdAt;
+		ai.updatedAt = updatedAt;
+		ai.deletedStatus = deletedStatus;
+		ai.deletedAt = deletedAt;
+		ai.createdBy = createdBy;
+		ai.updatedBy = updatedBy;
+		ai.deletedBy = deletedBy;
+		return ai;
 	}
 }

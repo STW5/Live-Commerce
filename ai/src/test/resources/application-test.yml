@@ -1,5 +1,8 @@
 spring:
 
+  config:
+    import: "optional:configserver:"  # 테스트 환경: config server 연결 선택적으로
+
   cloud:
     config:
       enabled: false                # config server 비활성화
@@ -44,3 +47,15 @@ internal:
   secret: valid-secret
 slack:
   admin-user-id: UXXXXXX     # 테스트용 아무 값
+  bot-token: test-bot-token
+
+gemini:
+  api:
+    key: test-gemini-key
+  model:
+    name: gemini-2.0-flash-exp
+
+management:
+  health:
+    mail:
+      enabled: false

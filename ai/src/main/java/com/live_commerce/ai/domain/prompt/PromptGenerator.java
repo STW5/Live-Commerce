@@ -4,17 +4,15 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
-import com.live_commerce.ai.application.dto.request.AiAnalyzeRequestDto;
-
 @Component
 public class PromptGenerator {
 
-	public String generate(List<AiAnalyzeRequestDto.ChatMessage> messages) {
+	public String generate(List<String> messages) {
 		StringBuilder prompt = new StringBuilder();
 		prompt.append("다음은 실시간 라이브 방송 중 고객들이 남긴 채팅 메시지 목록입니다.\n\n");
 
-		for (AiAnalyzeRequestDto.ChatMessage msg : messages) {
-			prompt.append("- ").append(msg.message()).append("\n");
+		for (String msg : messages) {
+			prompt.append("- ").append(msg).append("\n");
 		}
 
 		prompt.append("\n이 채팅 내용을 기반으로 다음 내용을 간결하고 명확하게 작성해줘:\n");

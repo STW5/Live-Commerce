@@ -3,7 +3,7 @@ package com.live_commerce.ai.application.dto.response;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import com.live_commerce.ai.domain.model.AI;
+import com.live_commerce.ai.application.dto.result.AiResult;
 
 public record AiGetResponseDto(
 	UUID id,
@@ -15,17 +15,16 @@ public record AiGetResponseDto(
 	String createdBy,
 	String updatedBy
 ) {
-	public static AiGetResponseDto from(AI ai) {
+	public static AiGetResponseDto from(AiResult result) {
 		return new AiGetResponseDto(
-			ai.getId(),
-			ai.getLiveBroadcastId(),
-			ai.getRequestPayload(),
-			ai.getResponsePayload(),
-			ai.getCreatedAt(),
-			ai.getUpdatedAt(),
-			ai.getCreatedBy(),
-			ai.getUpdatedBy()
+			result.id(),
+			result.liveBroadcastId(),
+			result.requestPayload(),
+			result.responsePayload(),
+			result.createdAt(),
+			result.updatedAt(),
+			result.createdBy(),
+			result.updatedBy()
 		);
 	}
 }
-

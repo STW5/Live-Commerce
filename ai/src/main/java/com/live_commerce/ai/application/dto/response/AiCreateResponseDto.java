@@ -2,7 +2,7 @@ package com.live_commerce.ai.application.dto.response;
 
 import java.util.UUID;
 
-import com.live_commerce.ai.domain.model.AI;
+import com.live_commerce.ai.application.dto.result.AiResult;
 
 public record AiCreateResponseDto(
 	UUID id,
@@ -10,12 +10,12 @@ public record AiCreateResponseDto(
 	String requestPayload,
 	String responsePayload
 ) {
-	public static AiCreateResponseDto from(AI ai) {
+	public static AiCreateResponseDto from(AiResult result) {
 		return new AiCreateResponseDto(
-			ai.getId(),
-			ai.getLiveBroadcastId(),
-			ai.getRequestPayload(),
-			ai.getResponsePayload()
+			result.id(),
+			result.liveBroadcastId(),
+			result.requestPayload(),
+			result.responsePayload()
 		);
 	}
 }
