@@ -20,6 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+/**
+ * @deprecated 레거시 수정 서비스. 신규 코드는 UpdateOrderUseCase / UpdateOrderService 사용 권장.
+ */
+@Deprecated(since = "hexagonal-ddd-order", forRemoval = true)
 @Slf4j
 @RequiredArgsConstructor
 @Service

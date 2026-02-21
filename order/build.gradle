@@ -72,6 +72,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
 
 	//feign patch 실행하기 위해 imple
 	implementation 'io.github.openfeign:feign-httpclient:13.5'

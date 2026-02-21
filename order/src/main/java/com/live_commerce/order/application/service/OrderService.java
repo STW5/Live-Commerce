@@ -30,6 +30,11 @@ import java.util.UUID;
 
 import static com.live_commerce.order.domain.model.OrderStatus.PAID;
 
+/**
+ * @deprecated 레거시 서비스. 신규 코드는 UseCase 인터페이스 사용 권장.
+ * createOrder → CreateOrderUseCase, updateOrderStatus → PaymentStatusTransitionService
+ */
+@Deprecated(since = "hexagonal-ddd-order", forRemoval = true)
 @Slf4j
 @Service
 @RequiredArgsConstructor

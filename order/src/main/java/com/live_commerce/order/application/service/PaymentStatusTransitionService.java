@@ -27,6 +27,7 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Deprecated(since = "hexagonal-ddd-order", forRemoval = true)
 public class PaymentStatusTransitionService {
     private final ProductClient productClient;
     private final PaymentClient paymentClient;

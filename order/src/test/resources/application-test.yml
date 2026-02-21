@@ -1,0 +1,51 @@
+spring:
+  config:
+    import: ""                      # config server import 비활성화 (테스트 환경)
+
+  cloud:
+    config:
+      enabled: false                # config server 비활성화
+
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        use_sql_comments: true
+
+  sql:
+    init:
+      mode: never
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+eureka:
+  client:
+    enabled: false
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+
+gateway:
+  base-url: localhost:9999
+
+service:
+  jwt:
+    access-expiration: 3600000
+    refresh-expiration: 604800000
+    secret-key: dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3Rpbmctb25seQ==
