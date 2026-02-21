@@ -18,16 +18,22 @@ import com.live_commerce.user.application.dto.user.response.UserGetResponseDto;
 import com.live_commerce.user.application.exception.CustomException;
 import com.live_commerce.user.application.exception.UserExceptionCode;
 import com.live_commerce.user.domain.model.User;
-import com.live_commerce.user.domain.repository.UserRepository;
+import com.live_commerce.user.infrastructure.adapter.persistence.UserJpaEntity;
+import com.live_commerce.user.infrastructure.adapter.persistence.UserJpaRepository;
 import com.live_commerce.user.infrastructure.security.RequestUserDetails;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * @deprecated Use {@code GetUserService}, {@code SearchUserService},
+ *             {@code UpdateUserService}, {@code DeleteUserService} instead.
+ */
+@Deprecated(since = "hexagonal-ddd-user", forRemoval = true)
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
-	private final UserRepository userRepository;
+	private final UserJpaRepository userJpaRepository;
 	private final PasswordEncoder passwordEncoder;
 
 	@Transactional(readOnly = true)
@@ -53,7 +59,9 @@ public class UserService {
 			pageable = PageRequest.of(pageable.getPageNumber(), 10, pageable.getSort());
 		}
 
-		List<User> users = userRepository.searchUser(condition);
+		List<User> users = userJpaRepository.searchUser(condition).stream()
+			.map(UserJpaEntity::toDomain)
+			.toList();
 		List<UserGetResponseDto> dtoList = users.stream()
 			.map(UserGetResponseDto::from)
 			.toList();
@@ -84,14 +92,16 @@ public class UserService {
 			requestDto.userRole() != null ? requestDto.userRole() : user.getUserRole()
 		);
 
-		return UserUpdateResponseDto.from(user);
+		User savedUser = userJpaRepository.save(UserJpaEntity.from(user)).toDomain();
+		return UserUpdateResponseDto.from(savedUser);
 	}
 
 	@Transactional
 	public void deleteUser(UUID userId, RequestUserDetails userDetails) {
 		validateUserDeletePermission(userId, userDetails);
 		User user = findUserById(userId);
-		user.markAsDeleted(userDetails.getUsername());
+		user.softDelete(userDetails.getUsername());
+		userJpaRepository.save(UserJpaEntity.from(user));
 	}
 
 	private void validateUserGetPermission(UUID userId, RequestUserDetails userDetails) {
@@ -122,17 +132,19 @@ public class UserService {
 	}
 
 	private User findUserById(UUID userId) {
-		User user = userRepository.findById(userId)
+		User user = userJpaRepository.findById(userId)
+			.map(UserJpaEntity::toDomain)
 			.orElseThrow(() -> new CustomException(UserExceptionCode.USER_NOT_FOUND));
 
-		if (user.isDeletedStatus()) {
+		if (user.isDeleted()) {
 			throw new CustomException(UserExceptionCode.DELETED_USER);
 		}
 		return user;
 	}
 
 	private User findUserEvenIfDeleted(UUID userId) {
-		return userRepository.findById(userId)
+		return userJpaRepository.findById(userId)
+			.map(UserJpaEntity::toDomain)
 			.orElseThrow(() -> new CustomException(UserExceptionCode.USER_NOT_FOUND));
 	}
 

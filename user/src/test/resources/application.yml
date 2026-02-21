@@ -1,0 +1,8 @@
+spring:
+  config:
+    import: "optional:configserver:"   # 테스트 환경: Config Server 선택사항
+
+  application:
+    name: user
+  profiles:
+    active: test

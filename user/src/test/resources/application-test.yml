@@ -1,5 +1,8 @@
 spring:
 
+  config:
+    import: ""                      # config server import 비활성화 (테스트 환경)
+
   cloud:
     config:
       enabled: false                # config server 비활성화
@@ -27,6 +30,15 @@ spring:
       host: localhost
       port: 6379
 
+  mail:
+    host: localhost
+    port: 25
+
+management:
+  health:
+    mail:
+      enabled: false   # @MockitoBean JavaMailSender 교체 시 빈 맵 오류 방지
+
 eureka:
   client:
     enabled: false
@@ -44,8 +56,7 @@ service:
   jwt:
     access-expiration: 3600000
     refresh-expiration: 604800000
+    secret-key: dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3Rpbmctb25seQ==
 
 user:
   master-key: test-master-key
-
-

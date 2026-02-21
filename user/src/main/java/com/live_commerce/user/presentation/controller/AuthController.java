@@ -28,6 +28,10 @@ import com.live_commerce.user.presentation.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * @deprecated Use {@code AuthControllerV3} at /api/v3/auth instead.
+ */
+@Deprecated(since = "hexagonal-ddd-user", forRemoval = true)
 @RestController
 @RequestMapping("/api/v2/auth")
 @RequiredArgsConstructor

@@ -15,6 +15,10 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * @deprecated Use {@code JavaMailNotificationAdapter} (implements {@code SendMailPort}) instead.
+ */
+@Deprecated(since = "hexagonal-ddd-user", forRemoval = true)
 @Service
 @RequiredArgsConstructor
 public class MailService {

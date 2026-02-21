@@ -1,4 +1,4 @@
-package com.live_commerce.user.domain.model;
+package com.live_commerce.user.infrastructure.adapter.persistence;
 
 import java.time.LocalDateTime;
 
@@ -13,15 +13,10 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.MappedSuperclass;
 import lombok.Getter;
 
-/**
- * @deprecated Use {@code BaseJpaEntity} in infrastructure/adapter/persistence/ instead.
- *             This class will be removed once all domain models are JPA-free.
- */
-@Deprecated(since = "hexagonal-ddd-user", forRemoval = true)
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
-public abstract class BaseEntity {
+public abstract class BaseJpaEntity {
 
 	@CreatedDate
 	@Column(updatable = false, nullable = false)
@@ -49,5 +44,4 @@ public abstract class BaseEntity {
 		this.deletedAt = LocalDateTime.now();
 		this.deletedBy = deletedBy;
 	}
-
 }

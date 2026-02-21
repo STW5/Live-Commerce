@@ -15,7 +15,8 @@ import com.live_commerce.user.application.exception.CustomException;
 import com.live_commerce.user.application.exception.UserExceptionCode;
 import com.live_commerce.user.domain.model.User;
 import com.live_commerce.user.domain.model.UserRole;
-import com.live_commerce.user.domain.repository.UserRepository;
+import com.live_commerce.user.infrastructure.adapter.persistence.UserJpaEntity;
+import com.live_commerce.user.infrastructure.adapter.persistence.UserJpaRepository;
 import com.live_commerce.user.infrastructure.common.JwtUtil;
 import com.live_commerce.user.infrastructure.common.PasswordGenerator;
 import com.live_commerce.user.infrastructure.common.RedisUtil;
@@ -26,11 +27,18 @@ import io.jsonwebtoken.Claims;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * @deprecated Use {@code SignUpService}, {@code SignInService}, {@code LogoutService},
+ *             {@code ReissueTokenService}, {@code FindUsernameService},
+ *             {@code ResetPasswordService}, {@code ApproveUserService} instead.
+ *             Legacy service (Kafka-based coupon issuance).
+ */
+@Deprecated(since = "hexagonal-ddd-user", forRemoval = true)
 @Service
 @RequiredArgsConstructor
 public class AuthServiceV2 {
 
-	private final UserRepository userRepository;
+	private final UserJpaRepository userJpaRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtUtil jwtUtil;
 	private final RedisUtil redisUtil;
@@ -61,7 +69,7 @@ public class AuthServiceV2 {
 
 		String encodedPassword = passwordEncoder.encode(request.password());
 		User user = request.toEntity(encodedPassword, approved);
-		User savedUser = userRepository.save(user);
+		User savedUser = userJpaRepository.save(UserJpaEntity.from(user)).toDomain();
 
 		// Kafka로 첫가입 쿠폰 발급 이벤트 발행
 		firstJoinCouponProducer.send(new FirstJoinCouponEvent(savedUser.getUserId()));
@@ -71,7 +79,8 @@ public class AuthServiceV2 {
 
 	@Transactional
 	public UserSignInResponseDto signIn(UserSignInRequestDto requestDto) {
-		User user = userRepository.findByUsername(requestDto.username())
+		User user = userJpaRepository.findByUsername(requestDto.username())
+			.map(UserJpaEntity::toDomain)
 			.filter(u -> passwordEncoder.matches(requestDto.password(), u.getPassword()))
 			.map(this::validateActiveUser)
 			.orElseThrow(() -> new CustomException(UserExceptionCode.INVALID_CREDENTIALS));
@@ -103,7 +112,8 @@ public class AuthServiceV2 {
 			throw new CustomException(UserExceptionCode.INVALID_REFRESH_TOKEN);
 		}
 
-		User user = userRepository.findById(userId)
+		User user = userJpaRepository.findById(userId)
+			.map(UserJpaEntity::toDomain)
 			.map(this::validateActiveUser)
 			.orElseThrow(() -> new CustomException(UserExceptionCode.USER_NOT_FOUND));
 
@@ -149,38 +159,43 @@ public class AuthServiceV2 {
 		String tempPassword = PasswordGenerator.generateTempPassword(10);
 		String encoded = passwordEncoder.encode(tempPassword);
 		user.changePassword(encoded);
+		userJpaRepository.save(UserJpaEntity.from(user));
 		mailService.sendTemporaryPassword(email, tempPassword);
 	}
 
 	@Transactional
 	public void approveUser(UUID userId) {
-		User user = userRepository.findById(userId)
+		User user = userJpaRepository.findById(userId)
+			.map(UserJpaEntity::toDomain)
 			.orElseThrow(() -> new CustomException(UserExceptionCode.USER_NOT_FOUND));
 
 		user.approve();
+		userJpaRepository.save(UserJpaEntity.from(user));
 	}
 
 	private User findActiveUserByEmail(String email) {
-		return userRepository.findByEmail(email)
+		return userJpaRepository.findByEmail(email)
+			.map(UserJpaEntity::toDomain)
 			.map(this::validateActiveUser)
 			.orElseThrow(() -> new CustomException(UserExceptionCode.USER_NOT_FOUND));
 	}
 
 	private User findActiveUserByUsernameAndEmail(String username, String email) {
-		return userRepository.findByUsernameAndEmail(username, email)
+		return userJpaRepository.findByUsernameAndEmail(username, email)
+			.map(UserJpaEntity::toDomain)
 			.map(this::validateActiveUser)
 			.orElseThrow(() -> new CustomException(UserExceptionCode.USER_NOT_FOUND));
 	}
 
 	private User validateActiveUser(User user) {
-		if (user.isDeletedStatus()) {
+		if (user.isDeleted()) {
 			throw new CustomException(UserExceptionCode.DELETED_USER);
 		}
 		return user;
 	}
 
 	private void validateEmail(String email) {
-		validateDuplicate(userRepository.existsByEmail(email), UserExceptionCode.DUPLICATE_EMAIL);
+		validateDuplicate(userJpaRepository.existsByEmail(email), UserExceptionCode.DUPLICATE_EMAIL);
 	}
 
 	private void validateDuplicate(boolean exists, UserExceptionCode exceptionCode) {

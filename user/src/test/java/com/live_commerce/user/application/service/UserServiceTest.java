@@ -1,6 +1,7 @@
 package com.live_commerce.user.application.service;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
@@ -24,24 +26,27 @@ import com.live_commerce.user.application.exception.CustomException;
 import com.live_commerce.user.application.exception.UserExceptionCode;
 import com.live_commerce.user.domain.model.User;
 import com.live_commerce.user.domain.model.UserRole;
-import com.live_commerce.user.domain.repository.UserRepository;
+import com.live_commerce.user.infrastructure.adapter.persistence.UserJpaEntity;
+import com.live_commerce.user.infrastructure.adapter.persistence.UserJpaRepository;
 import com.live_commerce.user.infrastructure.client.CouponClient;
 import com.live_commerce.user.infrastructure.common.JwtUtil;
 import com.live_commerce.user.infrastructure.common.RedisUtil;
 import com.live_commerce.user.infrastructure.security.RequestUserDetails;
+import org.springframework.mail.javamail.JavaMailSender;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.config.import=optional:configserver:")
 @ActiveProfiles("test")
 @Transactional
 class UserServiceTest {
 
-	@MockitoBean private UserRepository userRepository;
+	@MockitoBean private UserJpaRepository userJpaRepository;
 	@MockitoBean private PasswordEncoder passwordEncoder;
 
 	@MockitoBean private JwtUtil jwtUtil;
 	@MockitoBean private RedisUtil redisUtil;
 	@MockitoBean private MailService mailService;
 	@MockitoBean private CouponClient couponClient;
+	@MockitoBean private JavaMailSender javaMailSender;
 
 	@Autowired private UserService userService;
 
@@ -54,7 +59,7 @@ class UserServiceTest {
 		// given
 		User user = createUser();
 		RequestUserDetails self = createUserDetails(userId, "ROLE_CUSTOMER");
-		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(userJpaRepository.findById(userId)).thenReturn(Optional.of(UserJpaEntity.from(user)));
 
 		// when
 		UserGetResponseDto result = userService.getUser(userId, self);
@@ -69,7 +74,7 @@ class UserServiceTest {
 		// given
 		User user = createUser();
 		RequestUserDetails master = createUserDetails(UUID.randomUUID(), "ROLE_MASTER");
-		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(userJpaRepository.findById(userId)).thenReturn(Optional.of(UserJpaEntity.from(user)));
 
 		// when - then
 		assertThat(userService.getUser(userId, master).getEmail()).isEqualTo("email@test.com");
@@ -93,7 +98,7 @@ class UserServiceTest {
 	void getUser_notFound() {
 		// given
 		RequestUserDetails self = createUserDetails(userId, "ROLE_CUSTOMER");
-		when(userRepository.findById(userId)).thenReturn(Optional.empty());
+		when(userJpaRepository.findById(userId)).thenReturn(Optional.empty());
 
 		// expect
 		CustomException ex = catchThrowableOfType(() -> userService.getUser(userId, self), CustomException.class);
@@ -125,8 +130,9 @@ class UserServiceTest {
 		UserUpdateRequestDto dto =
 			new UserUpdateRequestDto("newPw", "new@mail.com", "newnick", true, null);
 
-		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(userJpaRepository.findById(userId)).thenReturn(Optional.of(UserJpaEntity.from(user)));
 		when(passwordEncoder.encode("newPw")).thenReturn("encodedPw");
+		when(userJpaRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
 		// when
 		UserUpdateResponseDto res = userService.updateUser(userId, dto, self);
@@ -141,13 +147,14 @@ class UserServiceTest {
 	void updateUser_master_canUpdateDeletedUser() {
 		// given
 		User deletedUser = createUser();
-		deletedUser.markAsDeleted("admin");
+		deletedUser.softDelete("admin");
 		RequestUserDetails master = createUserDetails(UUID.randomUUID(), "ROLE_MASTER");
 
 		UserUpdateRequestDto dto = new UserUpdateRequestDto("pw", "new@email.com", "newNick", true, null);
 
-		when(userRepository.findById(userId)).thenReturn(Optional.of(deletedUser));
+		when(userJpaRepository.findById(userId)).thenReturn(Optional.of(UserJpaEntity.from(deletedUser)));
 		when(passwordEncoder.encode("pw")).thenReturn("encoded");
+		when(userJpaRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
 		// when
 		UserUpdateResponseDto result = userService.updateUser(userId, dto, master);
@@ -162,10 +169,10 @@ class UserServiceTest {
 	void getUser_master_canViewDeletedUser() {
 		// given
 		User deletedUser = createUser();
-		deletedUser.markAsDeleted("admin");
+		deletedUser.softDelete("admin");
 		RequestUserDetails master = createUserDetails(UUID.randomUUID(), "ROLE_MASTER");
 
-		when(userRepository.findById(userId)).thenReturn(Optional.of(deletedUser));
+		when(userJpaRepository.findById(userId)).thenReturn(Optional.of(UserJpaEntity.from(deletedUser)));
 
 		// when
 		UserGetResponseDto result = userService.getUser(userId, master);
@@ -179,10 +186,10 @@ class UserServiceTest {
 	void getUser_deletedUser_forbidden() {
 		// given
 		User deletedUser = createUser();
-		deletedUser.markAsDeleted("admin");
+		deletedUser.softDelete("admin");
 		RequestUserDetails self = createUserDetails(userId, "ROLE_CUSTOMER");
 
-		when(userRepository.findById(userId)).thenReturn(Optional.of(deletedUser));
+		when(userJpaRepository.findById(userId)).thenReturn(Optional.of(UserJpaEntity.from(deletedUser)));
 
 		// expect
 		CustomException ex = catchThrowableOfType(() ->
@@ -196,12 +203,12 @@ class UserServiceTest {
 	void updateUser_deletedUser() {
 		// given
 		User user = createUser();
-		user.markAsDeleted("test");
+		user.softDelete("test");
 		UserUpdateRequestDto dto =
 			new UserUpdateRequestDto("pw", "email", "nick", true, null);
 		RequestUserDetails self = createUserDetails(userId, "ROLE_CUSTOMER");
 
-		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(userJpaRepository.findById(userId)).thenReturn(Optional.of(UserJpaEntity.from(user)));
 
 		// expect
 		CustomException ex = catchThrowableOfType(() ->
@@ -219,7 +226,7 @@ class UserServiceTest {
 		UserUpdateRequestDto dto =
 			new UserUpdateRequestDto(null, null, null, null, UserRole.MASTER);
 
-		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(userJpaRepository.findById(userId)).thenReturn(Optional.of(UserJpaEntity.from(user)));
 
 		// expect
 		CustomException ex = catchThrowableOfType(
@@ -234,13 +241,15 @@ class UserServiceTest {
 		// given
 		User user = createUser();
 		RequestUserDetails master = createUserDetails(UUID.randomUUID(), "ROLE_MASTER");
-		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(userJpaRepository.findById(userId)).thenReturn(Optional.of(UserJpaEntity.from(user)));
 
 		// when
 		userService.deleteUser(userId, master);
 
-		// then
-		assertThat(user.isDeletedStatus()).isTrue();
+		// then - 저장된 엔티티의 deletedStatus 확인
+		ArgumentCaptor<UserJpaEntity> captor = ArgumentCaptor.forClass(UserJpaEntity.class);
+		verify(userJpaRepository).save(captor.capture());
+		assertThat(captor.getValue().toDomain().isDeleted()).isTrue();
 	}
 
 	@DisplayName("삭제 성공 - 일반 유저가 본인 계정 삭제")
@@ -250,23 +259,22 @@ class UserServiceTest {
 		User user = createUser();
 		RequestUserDetails self = createUserDetails(userId, "ROLE_CUSTOMER");
 
-		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(userJpaRepository.findById(userId)).thenReturn(Optional.of(UserJpaEntity.from(user)));
 
 		// When
 		userService.deleteUser(userId, self);
 
-		// Then
-		assertThat(user.isDeletedStatus()).isTrue();
+		// Then - 저장된 엔티티의 deletedStatus 확인
+		ArgumentCaptor<UserJpaEntity> captor = ArgumentCaptor.forClass(UserJpaEntity.class);
+		verify(userJpaRepository).save(captor.capture());
+		assertThat(captor.getValue().toDomain().isDeleted()).isTrue();
 	}
 
 	@Test
 	@DisplayName("삭제 실패 - 일반 유저가 타인 삭제 시도")
 	void deleteUser_others_forbidden() {
 		// Given
-		User user = createUser();
 		RequestUserDetails other = createUserDetails(UUID.randomUUID(), "ROLE_CUSTOMER");
-
-		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
 		// When & Then
 		CustomException ex = catchThrowableOfType(
@@ -277,8 +285,8 @@ class UserServiceTest {
 
 
 	private User createUser() {
-		return User.of("user", "pw", "email@test.com",
-			"nickname", true, UserRole.CUSTOMER, false);
+		return User.reconstitute(userId, "user", "pw", "email@test.com",
+			"nickname", true, UserRole.CUSTOMER, true, false, null);
 	}
 
 	private RequestUserDetails createUserDetails(UUID id, String role) {

@@ -20,14 +20,16 @@ import com.live_commerce.user.application.dto.auth.request.*;
 import com.live_commerce.user.application.dto.auth.response.*;
 import com.live_commerce.user.application.exception.*;
 import com.live_commerce.user.domain.model.*;
-import com.live_commerce.user.domain.repository.UserRepository;
+import com.live_commerce.user.infrastructure.adapter.persistence.UserJpaEntity;
+import com.live_commerce.user.infrastructure.adapter.persistence.UserJpaRepository;
 import com.live_commerce.user.infrastructure.client.CouponClient;
 import com.live_commerce.user.infrastructure.common.JwtUtil;
 import com.live_commerce.user.infrastructure.common.RedisUtil;
+import org.springframework.mail.javamail.JavaMailSender;
 
 import io.jsonwebtoken.Claims;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.config.import=optional:configserver:")
 @ActiveProfiles("test")
 @Transactional
 class AuthServiceTest {
@@ -35,7 +37,7 @@ class AuthServiceTest {
 	@Autowired private AuthService authService;
 
 	@MockitoBean
-	private UserRepository userRepository;
+	private UserJpaRepository userJpaRepository;
 	@MockitoBean
 	private PasswordEncoder passwordEncoder;
 	@MockitoBean
@@ -46,15 +48,17 @@ class AuthServiceTest {
 	private MailService mailService;
 	@MockitoBean
 	private CouponClient couponClient;
+	@MockitoBean
+	private JavaMailSender javaMailSender;
 
 	@DisplayName("회원가입 성공")
 	@Test
 	void signUp_success() {
 		// Given
 		UserSignUpRequestDto req = new UserSignUpRequestDto("testuser", "password", "test@email.com", "nickname", true, UserRole.CUSTOMER, null);
-		when(userRepository.existsByEmail(req.email())).thenReturn(false);
+		when(userJpaRepository.existsByEmail(req.email())).thenReturn(false);
 		when(passwordEncoder.encode(req.password())).thenReturn("encoded");
-		when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(userJpaRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
 		// When
 		UserSignUpResponseDto res = authService.signUp(req);
@@ -69,7 +73,7 @@ class AuthServiceTest {
 	void signUp_masterKey_invalid() {
 		// Given
 		UserSignUpRequestDto req = new UserSignUpRequestDto("admin", "pass", "admin@email.com", "nickname", true, UserRole.MASTER, "wrong-key");
-		when(userRepository.existsByEmail(any())).thenReturn(false);
+		when(userJpaRepository.existsByEmail(any())).thenReturn(false);
 
 		// When & Then
 		assertThatThrownBy(() -> authService.signUp(req))
@@ -80,11 +84,9 @@ class AuthServiceTest {
 	@DisplayName("로그인 성공")
 	@Test
 	void signIn_success() {
-		// Given
-		User raw = User.of("testuser", "encoded", "email@test.com", "nickname", true, UserRole.CUSTOMER, false);
-		User user = spy(raw);
-		doReturn(true).when(user).isApproved();
-		when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+		// Given - approved=true로 승인된 유저
+		User user = User.of("testuser", "encoded", "email@test.com", "nickname", true, UserRole.CUSTOMER, true);
+		when(userJpaRepository.findByUsername("testuser")).thenReturn(Optional.of(UserJpaEntity.from(user)));
 		when(passwordEncoder.matches("password", "encoded")).thenReturn(true);
 		when(jwtUtil.createAccessToken(any(), any(), any())).thenReturn("access-token");
 		when(jwtUtil.createRefreshToken(any())).thenReturn("refresh-token");
@@ -105,9 +107,9 @@ class AuthServiceTest {
 	void signIn_deletedUser() {
 		// Given
 		User user = User.of("user", "encoded", "email", "nick", true, UserRole.CUSTOMER, true);
-		user.markAsDeleted("admin");
+		user.softDelete("admin");
 
-		when(userRepository.findByUsername("user")).thenReturn(Optional.of(user));
+		when(userJpaRepository.findByUsername("user")).thenReturn(Optional.of(UserJpaEntity.from(user)));
 		when(passwordEncoder.matches("password", "encoded")).thenReturn(true);
 
 		// When & Then
@@ -129,8 +131,8 @@ class AuthServiceTest {
 		when(jwtUtil.parseClaims("refresh-token")).thenReturn(claims);
 		when(redisUtil.getData("RT:" + userId)).thenReturn("refresh-token");
 
-		User user = User.of("testuser", "pw", "email", "nickname", true, UserRole.CUSTOMER, false);
-		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		User user = User.reconstitute(userId, "testuser", "pw", "email", "nickname", true, UserRole.CUSTOMER, true, false, null);
+		when(userJpaRepository.findById(userId)).thenReturn(Optional.of(UserJpaEntity.from(user)));
 		when(jwtUtil.createAccessToken(any(), any(), any())).thenReturn("new-access");
 		when(jwtUtil.createRefreshToken(any())).thenReturn("new-refresh");
 
@@ -165,7 +167,7 @@ class AuthServiceTest {
 
 		User user = User.of(expectedUsername, "pw", email, "nick", true, UserRole.CUSTOMER, false);
 
-		when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+		when(userJpaRepository.findByEmail(email)).thenReturn(Optional.of(UserJpaEntity.from(user)));
 		when(redisUtil.getData(email)).thenReturn(inputCode);
 
 		// When
@@ -212,7 +214,7 @@ class AuthServiceTest {
 		String inputCode = "123456";
 
 		when(redisUtil.getData(email)).thenReturn(inputCode);
-		when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+		when(userJpaRepository.findByEmail(email)).thenReturn(Optional.empty());
 
 		// When & Then
 		CustomException ex = catchThrowableOfType(() ->
@@ -229,9 +231,9 @@ class AuthServiceTest {
 		String inputCode = "123456";
 
 		User user = User.of("deletedUser", "pw", email, "nick", true, UserRole.CUSTOMER, true);
-		user.markAsDeleted("test"); // 삭제 상태로 변경
+		user.softDelete("test");
 
-		when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+		when(userJpaRepository.findByEmail(email)).thenReturn(Optional.of(UserJpaEntity.from(user)));
 		when(redisUtil.getData(email)).thenReturn(inputCode);
 
 		// when & then
@@ -246,14 +248,14 @@ class AuthServiceTest {
 	void resetPasswordAndSendTempPassword_success() {
 		// Given
 		User user = User.of("user", "pw", "email", "nickname", true, UserRole.CUSTOMER, false);
-		when(userRepository.findByUsernameAndEmail("user", "email")).thenReturn(Optional.of(user));
+		when(userJpaRepository.findByUsernameAndEmail("user", "email")).thenReturn(Optional.of(UserJpaEntity.from(user)));
 		when(passwordEncoder.encode(any())).thenReturn("encoded");
 
 		// When
 		authService.resetPasswordAndSendTempPassword("user", "email");
 
 		// Then
-		verify(userRepository).findByUsernameAndEmail("user", "email");
+		verify(userJpaRepository).findByUsernameAndEmail("user", "email");
 		verify(mailService).sendTemporaryPassword(eq("email"), any());
 	}
 
@@ -262,10 +264,10 @@ class AuthServiceTest {
 	void resetPassword_deletedUser() {
 		// Given
 		User deletedUser = User.of("user", "pw", "email", "nickname", true, UserRole.CUSTOMER, true);
-		deletedUser.markAsDeleted("admin");
+		deletedUser.softDelete("admin");
 
-		when(userRepository.findByUsernameAndEmail("user", "email"))
-			.thenReturn(Optional.of(deletedUser));
+		when(userJpaRepository.findByUsernameAndEmail("user", "email"))
+			.thenReturn(Optional.of(UserJpaEntity.from(deletedUser)));
 
 		// When & Then
 		CustomException ex = catchThrowableOfType(

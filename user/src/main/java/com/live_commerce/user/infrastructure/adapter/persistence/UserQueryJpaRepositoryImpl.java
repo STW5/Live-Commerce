@@ -1,23 +1,21 @@
-package com.live_commerce.user.domain.repository;
+package com.live_commerce.user.infrastructure.adapter.persistence;
 
 import java.util.List;
 
 import com.live_commerce.user.application.dto.auth.request.UserSearchCondition;
-import com.live_commerce.user.domain.model.QUser;
-import com.live_commerce.user.domain.model.User;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public class UserQueryRepositoryImpl implements UserQueryRepository {
+public class UserQueryJpaRepositoryImpl implements UserQueryJpaRepository {
 
 	private final JPAQueryFactory queryFactory;
 
 	@Override
-	public List<User> searchUser(UserSearchCondition condition) {
-		QUser user = QUser.user;
+	public List<UserJpaEntity> searchUser(UserSearchCondition condition) {
+		QUserJpaEntity user = QUserJpaEntity.userJpaEntity;
 		BooleanBuilder builder = new BooleanBuilder();
 
 		if (condition.username() != null) {

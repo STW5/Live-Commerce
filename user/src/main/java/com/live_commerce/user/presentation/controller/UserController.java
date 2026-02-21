@@ -29,6 +29,10 @@ import com.live_commerce.user.presentation.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * @deprecated Use {@code UserControllerV3} at /api/v3/users instead.
+ */
+@Deprecated(since = "hexagonal-ddd-user", forRemoval = true)
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
