@@ -1,67 +1,65 @@
 package com.live_commerce.livebroadcast.domain.model;
 
-
-import com.live_commerce.livebroadcast.application.dto.request.LiveBroadcastUpdateRequestDto;
-import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Entity
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "p_live_broadcast", schema = "livebroadcast")
 public class LiveBroadcast extends BaseEntity {
 
-    @Id
-    @UuidGenerator
     private UUID liveBroadcastId;
-
-    @Column(nullable = false)
     private String broadcastName;
-
     private LocalDateTime startTime;
-
     private LocalDateTime endTime;
-
-    @Enumerated(EnumType.STRING)
     private BroadcastStatus broadcastStatus;
-
     private UUID hostId;
-
     private UUID companyId;
-
     private Integer totalViewerCount;
 
-    @Builder
-    private LiveBroadcast(String broadcastName, LocalDateTime startTime, LocalDateTime endTime, UUID hostId, UUID companyId) {
-        this.broadcastName = broadcastName;
-        this.startTime = startTime;
-        this.endTime = endTime;
-        this.broadcastStatus = BroadcastStatus.SCHEDULED;
-        this.hostId = hostId;
-        this.companyId = companyId;
-        this.totalViewerCount = 0;
+    private LiveBroadcast() {}
+
+    public static LiveBroadcast create(String broadcastName, LocalDateTime startTime,
+            LocalDateTime endTime, UUID hostId, UUID companyId) {
+        LiveBroadcast b = new LiveBroadcast();
+        b.liveBroadcastId = UUID.randomUUID();
+        b.broadcastName = broadcastName;
+        b.startTime = startTime;
+        b.endTime = endTime;
+        b.broadcastStatus = BroadcastStatus.SCHEDULED;
+        b.hostId = hostId;
+        b.companyId = companyId;
+        b.totalViewerCount = 0;
+        return b;
     }
 
-    public static LiveBroadcast create(String broadcastName, LocalDateTime startTime, LocalDateTime endTime, UUID hostId, UUID companyId) {
-        return new LiveBroadcast(broadcastName, startTime, endTime, hostId, companyId);
+    public static LiveBroadcast reconstitute(UUID id, String broadcastName, LocalDateTime startTime,
+            LocalDateTime endTime, BroadcastStatus status, UUID hostId, UUID companyId,
+            Integer totalViewerCount, LocalDateTime createdAt, String createdBy,
+            LocalDateTime updatedAt, String updatedBy, LocalDateTime deletedAt,
+            UUID deletedBy, boolean deletedStatus) {
+        LiveBroadcast b = new LiveBroadcast();
+        b.liveBroadcastId = id;
+        b.broadcastName = broadcastName;
+        b.startTime = startTime;
+        b.endTime = endTime;
+        b.broadcastStatus = status;
+        b.hostId = hostId;
+        b.companyId = companyId;
+        b.totalViewerCount = totalViewerCount;
+        b.setAuditFields(createdAt, createdBy, updatedAt, updatedBy, deletedAt, deletedBy, deletedStatus);
+        return b;
     }
 
-    public void update(LiveBroadcastUpdateRequestDto dto) {
-        if (dto.broadcastName() != null) this.broadcastName = dto.broadcastName();
-        if (dto.startTime() != null) this.startTime = dto.startTime();
-        if (dto.endTime() != null) this.endTime = dto.endTime();
-        if (dto.broadcastStatus() != null) this.broadcastStatus = dto.broadcastStatus();
+    public void update(String broadcastName, LocalDateTime startTime, LocalDateTime endTime,
+            BroadcastStatus broadcastStatus) {
+        if (broadcastName != null) this.broadcastName = broadcastName;
+        if (startTime != null) this.startTime = startTime;
+        if (endTime != null) this.endTime = endTime;
+        if (broadcastStatus != null) this.broadcastStatus = broadcastStatus;
     }
 
     public void updateStatus(BroadcastStatus newStatus) {
         this.broadcastStatus = newStatus;
     }
-
 }

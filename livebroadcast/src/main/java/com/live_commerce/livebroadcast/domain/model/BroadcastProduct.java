@@ -1,37 +1,35 @@
 package com.live_commerce.livebroadcast.domain.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import org.hibernate.annotations.UuidGenerator;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Entity
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "p_broadcast_product", schema = "livebroadcast")
-public class BroadcastProduct extends BaseEntity{
+public class BroadcastProduct extends BaseEntity {
 
-    @Id
-    @UuidGenerator
     private UUID broadcastProductId;
-
     private UUID liveBroadcastId;
-
     private UUID productId;
 
-    private BroadcastProduct(UUID liveBroadcastId, UUID productId) {
-        this.liveBroadcastId = liveBroadcastId;
-        this.productId = productId;
-    }
+    private BroadcastProduct() {}
 
     public static BroadcastProduct create(UUID liveBroadcastId, UUID productId) {
-        return new BroadcastProduct(liveBroadcastId, productId);
+        BroadcastProduct bp = new BroadcastProduct();
+        bp.broadcastProductId = UUID.randomUUID();
+        bp.liveBroadcastId = liveBroadcastId;
+        bp.productId = productId;
+        return bp;
     }
 
+    public static BroadcastProduct reconstitute(UUID id, UUID liveBroadcastId, UUID productId,
+            LocalDateTime createdAt, String createdBy, LocalDateTime updatedAt, String updatedBy,
+            LocalDateTime deletedAt, UUID deletedBy, boolean deletedStatus) {
+        BroadcastProduct bp = new BroadcastProduct();
+        bp.broadcastProductId = id;
+        bp.liveBroadcastId = liveBroadcastId;
+        bp.productId = productId;
+        bp.setAuditFields(createdAt, createdBy, updatedAt, updatedBy, deletedAt, deletedBy, deletedStatus);
+        return bp;
+    }
 }
