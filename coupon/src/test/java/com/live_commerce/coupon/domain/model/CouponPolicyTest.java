@@ -36,17 +36,7 @@ public class CouponPolicyTest {
   }
 
   private CouponPolicy createCouponPolicy() {
-    return CouponPolicy.builder()
-        .code(code)
-        .name(name)
-        .discountType(discountType)
-        .discountValue(discountValue)
-        .minOrderAmt(minOrderAmt)
-        .maxOrderAmt(maxOrderAmt)
-        .startAt(startAt)
-        .endAt(endAt)
-        .isActive(isActive)
-        .build();
+    return CouponPolicy.create(code, name, discountType, discountValue, minOrderAmt, maxOrderAmt, startAt, endAt, isActive);
   }
 
   @Test

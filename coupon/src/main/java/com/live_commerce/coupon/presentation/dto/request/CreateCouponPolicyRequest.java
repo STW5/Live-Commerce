@@ -19,17 +19,10 @@ public record CreateCouponPolicyRequest(
 ) {
 
   public CouponPolicy toCouponPolicy() {
-    return CouponPolicy.builder()
-        .code(this.code())
-        .name(this.name())
-        .discountType(this.discountType())
-        .discountValue(this.discountValue())
-        .minOrderAmt(this.minOrderAmt())
-        .maxOrderAmt(this.maxOrderAmt())
-        .startAt(this.startAt())
-        .endAt(this.endAt())
-        .isActive(this.isActive())
-        .build();
-
+    return CouponPolicy.create(
+        this.code(), this.name(), this.discountType(),
+        this.discountValue(), this.minOrderAmt(), this.maxOrderAmt(),
+        this.startAt(), this.endAt(), this.isActive()
+    );
   }
 }

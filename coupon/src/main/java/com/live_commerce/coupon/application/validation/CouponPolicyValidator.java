@@ -1,8 +1,8 @@
 package com.live_commerce.coupon.application.validation;
 
+import com.live_commerce.coupon.adapter.out.persistence.CouponPolicyJpaRepository;
 import com.live_commerce.coupon.domain.exception.CouponPolicyException;
 import com.live_commerce.coupon.domain.model.DISCOUNT_TYPE;
-import com.live_commerce.coupon.domain.repository.CouponPolicyRepository;
 import com.live_commerce.coupon.presentation.dto.request.CreateCouponPolicyRequest;
 import com.live_commerce.coupon.presentation.dto.request.UpdateCouponPolicyRequest;
 import java.math.BigDecimal;
@@ -11,14 +11,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class CouponPolicyValidator {
 
-  private final CouponPolicyRepository couponPolicyRepository;
+  private final CouponPolicyJpaRepository couponPolicyJpaRepository;
 
-  public CouponPolicyValidator(CouponPolicyRepository couponPolicyRepository) {
-    this.couponPolicyRepository = couponPolicyRepository;
+  public CouponPolicyValidator(CouponPolicyJpaRepository couponPolicyJpaRepository) {
+    this.couponPolicyJpaRepository = couponPolicyJpaRepository;
   }
 
   public void validateForCreatePolicy(CreateCouponPolicyRequest request) {
-    if (couponPolicyRepository.existsById(request.code())) {
+    if (couponPolicyJpaRepository.existsById(request.code())) {
       CouponPolicyException.forDuplicateCouponName();
     }
 

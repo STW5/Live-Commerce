@@ -11,8 +11,13 @@ import org.springframework.stereotype.Component;
  * 주문 실패 이벤트 Consumer
  * 주문 실패 시 사용된 쿠폰을 복구합니다.
  */
+/**
+ * @deprecated 헥사고날 아키텍처 전환으로 {@code adapter.in.kafka.OrderFailedKafkaConsumer}로 대체됨.
+ *             중복 처리 방지를 위해 @Component 비활성화.
+ */
+@Deprecated(since = "hexagonal-ddd-coupon", forRemoval = true)
 @Slf4j
-@Component
+// @Component  // 비활성화: OrderFailedKafkaConsumer (adapter.in.kafka) 로 대체
 @RequiredArgsConstructor
 public class OrderFailedEventConsumer {
 

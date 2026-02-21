@@ -8,6 +8,11 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import jakarta.persistence.*;
 
+/**
+ * @deprecated 헥사고날 아키텍처 전환으로 {@code adapter.out.persistence.BaseJpaEntity}로 대체.
+ *             Domain Layer에서 JPA 의존 제거 완료.
+ */
+@Deprecated(since = "hexagonal-ddd-coupon", forRemoval = true)
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)

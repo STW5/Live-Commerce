@@ -7,8 +7,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+/**
+ * @deprecated 헥사고날 아키텍처 전환으로 {@code adapter.in.kafka.CouponUsedKafkaConsumer}로 대체됨.
+ *             중복 처리 방지를 위해 @Component 비활성화.
+ */
+@Deprecated(since = "hexagonal-ddd-coupon", forRemoval = true)
 @Slf4j
-@Component
+// @Component  // 비활성화: CouponUsedKafkaConsumer (adapter.in.kafka) 로 대체
 @RequiredArgsConstructor
 public class CouponUsedEventConsumer {
 

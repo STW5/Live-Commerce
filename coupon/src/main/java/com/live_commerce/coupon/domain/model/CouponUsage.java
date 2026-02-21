@@ -6,6 +6,10 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.*;
 
+/**
+ * @deprecated 사용되지 않는 레거시 JPA 엔티티. 헥사고날 아키텍처 전환 시 도메인 레이어에서 제거 예정.
+ */
+@Deprecated(since = "hexagonal-ddd-coupon", forRemoval = true)
 @Entity
 @Table(name = "p_coupon_usage")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

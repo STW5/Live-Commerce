@@ -8,12 +8,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.live_commerce.coupon.adapter.out.persistence.CouponPolicyJpaRepository;
 import com.live_commerce.coupon.application.exception.CouponPolicyExceptionCode;
 import com.live_commerce.coupon.application.validation.CouponPolicyValidator;
 import com.live_commerce.coupon.domain.exception.CouponPolicyException;
 import com.live_commerce.coupon.domain.model.CouponPolicy;
 import com.live_commerce.coupon.domain.model.DISCOUNT_TYPE;
-import com.live_commerce.coupon.domain.repository.CouponPolicyRepository;
+import com.live_commerce.coupon.domain.port.out.CouponPolicyRepositoryPort;
 import com.live_commerce.coupon.infrastructure.security.RequestUserDetails;
 import com.live_commerce.coupon.presentation.dto.request.CreateCouponPolicyRequest;
 import com.live_commerce.coupon.presentation.dto.request.UpdateCouponPolicyRequest;
@@ -22,18 +23,22 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@SpringBootTest
+@ExtendWith(MockitoExtension.class)
 public class CouponPolicyServiceTest {
 
   @Mock
-  private CouponPolicyRepository couponPolicyRepository;
+  private CouponPolicyRepositoryPort couponPolicyRepositoryPort;
 
   @Mock
-  private CouponPolicyValidator couponPolicyValidator;  // couponPolicyValidator Mock 추가
+  private CouponPolicyJpaRepository couponPolicyJpaRepository;
+
+  @Mock
+  private CouponPolicyValidator couponPolicyValidator;
 
   @InjectMocks
   private CouponPolicyService couponPolicyService;
@@ -60,18 +65,11 @@ public class CouponPolicyServiceTest {
         true
     );
 
-    couponPolicy = CouponPolicy.builder()
-        .code(code)
-        .name("테스트 쿠폰")
-        .discountType(DISCOUNT_TYPE.FIXED)
-        .discountValue(BigDecimal.valueOf(100))
-        .minOrderAmt(BigDecimal.valueOf(500))
-        .maxOrderAmt(BigDecimal.valueOf(1000))
-        .startAt(LocalDateTime.now().plusDays(1))
-        .endAt(LocalDateTime.now().plusDays(30))
-        .isActive(true)
-        .build();
-
+    couponPolicy = CouponPolicy.create(
+        code, "테스트 쿠폰", DISCOUNT_TYPE.FIXED,
+        BigDecimal.valueOf(100), BigDecimal.valueOf(500), BigDecimal.valueOf(1000),
+        LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(30), true
+    );
   }
 
   @Test
@@ -93,7 +91,7 @@ public class CouponPolicyServiceTest {
     // when & then
     doThrow(new CouponPolicyException(CouponPolicyExceptionCode.INVALID_DATE_RANGE))
         .when(couponPolicyValidator).validateForCreatePolicy(
-            any(CreateCouponPolicyRequest.class));  // void 메서드는 doThrow로 예외 던지기
+            any(CreateCouponPolicyRequest.class));
 
     assertThatThrownBy(() -> couponPolicyService.createCouponPolicy(request, userDetails))
         .isInstanceOf(CouponPolicyException.class)
@@ -154,17 +152,15 @@ public class CouponPolicyServiceTest {
     String validCouponId = couponPolicy.getCode();
 
     // when
-    when(couponPolicyRepository.findByCodeAndDeletedStatusFalse(validCouponId)).thenReturn(
+    when(couponPolicyRepositoryPort.findActiveByCode(validCouponId)).thenReturn(
         Optional.of(couponPolicy));
 
-    ReadCouponPolicyResponse response = couponPolicyService.getCouponPolicy(validCouponId,
-        userDetails);
+    ReadCouponPolicyResponse response = couponPolicyService.getCouponPolicy(validCouponId, userDetails);
 
     // then
     assertThat(response).isNotNull();
     assertThat(response.code()).isEqualTo(validCouponId);
-    verify(couponPolicyRepository, times(1)).findByCodeAndDeletedStatusFalse(validCouponId);
-
+    verify(couponPolicyRepositoryPort, times(1)).findActiveByCode(validCouponId);
   }
 
   @Test
@@ -174,16 +170,14 @@ public class CouponPolicyServiceTest {
     String code = "WINTER_SALE_100";
 
     // when
-    when(couponPolicyRepository.findByCodeAndDeletedStatusFalse(code)).thenReturn(
-        Optional.empty());
+    when(couponPolicyRepositoryPort.findActiveByCode(code)).thenReturn(Optional.empty());
 
     // then
     assertThatThrownBy(() -> couponPolicyService.getCouponPolicy(code, userDetails))
         .isInstanceOf(CouponPolicyException.class)
         .hasMessageContaining("쿠폰 정책이 없거나 모두 삭제되었습니다.");
 
-    verify(couponPolicyRepository, times(1)).findByCodeAndDeletedStatusFalse(code);
-
+    verify(couponPolicyRepositoryPort, times(1)).findActiveByCode(code);
   }
 
   @Test
@@ -193,8 +187,8 @@ public class CouponPolicyServiceTest {
     String validCouponId = couponPolicy.getCode();
 
     // when
-    when(couponPolicyRepository.findById(validCouponId))
-        .thenReturn(Optional.of(couponPolicy));
+    when(couponPolicyRepositoryPort.findByCode(validCouponId)).thenReturn(Optional.of(couponPolicy));
+    when(couponPolicyRepositoryPort.save(any(CouponPolicy.class))).thenReturn(couponPolicy);
 
     couponPolicyService.deleteCouponPolicy(validCouponId, userDetails);
 
@@ -203,14 +197,13 @@ public class CouponPolicyServiceTest {
     assertThat(couponPolicy.getDeletedBy()).isNotNull();
     assertThat(couponPolicy.getDeletedAt()).isNotNull();
 
-    when(couponPolicyRepository.findById(validCouponId))
-        .thenReturn(Optional.empty());
+    when(couponPolicyRepositoryPort.findActiveByCode(validCouponId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> couponPolicyService.getCouponPolicy(validCouponId, userDetails))
         .isInstanceOf(CouponPolicyException.class)
         .hasMessageContaining("쿠폰 정책이 없거나 모두 삭제되었습니다.");
 
-    verify(couponPolicyRepository, times(1)).save(couponPolicy);
+    verify(couponPolicyRepositoryPort, times(1)).save(any(CouponPolicy.class));
   }
 
   @Test
@@ -231,9 +224,8 @@ public class CouponPolicyServiceTest {
     );
 
     // when
-    when(couponPolicyRepository.findByCodeAndDeletedStatusFalse(validCouponCode))
-        .thenReturn(Optional.of(couponPolicy));
-    when(couponPolicyRepository.save(couponPolicy)).thenReturn(couponPolicy);
+    when(couponPolicyRepositoryPort.findActiveByCode(validCouponCode)).thenReturn(Optional.of(couponPolicy));
+    when(couponPolicyRepositoryPort.save(any(CouponPolicy.class))).thenReturn(couponPolicy);
 
     couponPolicyService.updateCouponPolicy(validCouponCode, updateRequest, userDetails);
 
@@ -243,9 +235,7 @@ public class CouponPolicyServiceTest {
     assertThat(couponPolicy.getStartAt()).isEqualTo(updateRequest.startAt());
     assertThat(couponPolicy.getEndAt()).isEqualTo(updateRequest.endAt());
 
-    verify(couponPolicyRepository, times(1)).findByCodeAndDeletedStatusFalse(validCouponCode);
-    verify(couponPolicyRepository, times(1)).save(couponPolicy);
+    verify(couponPolicyRepositoryPort, times(1)).findActiveByCode(validCouponCode);
+    verify(couponPolicyRepositoryPort, times(1)).save(any(CouponPolicy.class));
   }
-
-
 }
