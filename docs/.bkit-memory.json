@@ -1,8 +1,13 @@
 {
-  "sessionCount": 4,
+  "sessionCount": 21,
   "lastSession": {
-    "startedAt": "2026-02-14T03:09:23.999Z",
+    "startedAt": "2026-02-20T11:20:05.403Z",
     "platform": "claude",
     "level": "Enterprise"
-  }
+  },
+  "currentFeature": "payment-cleanup",
+  "currentPhase": "completed",
+  "planPath": "docs/01-plan/features/payment-cleanup.plan.md",
+  "designPath": "docs/02-design/features/payment-cleanup.design.md",
+  "matchRate": 96.0
 }
