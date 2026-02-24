@@ -57,7 +57,7 @@ spring:
         - id: payment
           uri: lb://payment
           predicates:
-            - Path=/api/v1/payments/**, /api/v2/payments/**, /v3/api-docs/payment
+            - Path=/api/v1/payments/**, /api/v2/payments/**, /api/v3/payments/**, /v3/api-docs/payment
 
         - id: product
           uri: lb://product
