@@ -7,7 +7,6 @@ import com.live_commerce.order.domain.port.out.OrderEventPublisher;
 import com.live_commerce.order.infrastructure.outbox.OutboxEventHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
@@ -15,28 +14,28 @@ import java.util.UUID;
 /**
  * OrderEventPublisher 구현체 (Kafka Messaging Adapter)
  * - Application Layer가 Kafka 구현체에 직접 의존하지 않도록 격리
- * - 신뢰성이 필요한 보상 이벤트(rollback, failed)는 Outbox 패턴 사용
+ * - 모든 이벤트 발행을 Outbox 패턴으로 처리하여 원자성 보장
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class KafkaOrderEventPublisher implements OrderEventPublisher {
 
-    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final OutboxEventHelper outboxEventHelper;
 
     @Override
     public void publishInventoryDecrease(UUID orderId, UUID productId, int quantity) {
         InventoryDecreaseRequestEvent event = InventoryDecreaseRequestEvent.of(orderId, productId, quantity);
-        kafkaTemplate.send("inventory-decrease", orderId.toString(), event);
-        log.info("[KafkaOrderEventPublisher] 재고 감소 이벤트 발행 - orderId: {}", orderId);
+        outboxEventHelper.saveEvent("ORDER", orderId, "INVENTORY_DECREASE",
+                "inventory-decrease", event);
+        log.info("[KafkaOrderEventPublisher] 재고 감소 이벤트 Outbox 저장 - orderId: {}", orderId);
     }
 
     @Override
     public void publishCouponUsed(UUID couponId, UUID userId) {
         CouponUsedEvent event = new CouponUsedEvent(couponId, userId);
-        kafkaTemplate.send("coupon-used", userId.toString(), event);
-        log.info("[KafkaOrderEventPublisher] 쿠폰 사용 이벤트 발행 - couponId: {}", couponId);
+        outboxEventHelper.saveEvent("ORDER", couponId, "COUPON_USED", "coupon-used", event);
+        log.info("[KafkaOrderEventPublisher] 쿠폰 사용 이벤트 Outbox 저장 - couponId: {}", couponId);
     }
 
     @Override

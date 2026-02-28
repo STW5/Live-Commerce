@@ -1,9 +1,8 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-02-20T11:29:24.706Z",
+  "lastUpdated": "2026-02-28T10:57:45.703Z",
   "activeFeatures": [
     "hexagonal-ddd-payment",
-    "compensation-transaction",
     "payment",
     "order",
     "inventory",
@@ -49,7 +48,11 @@
     "response",
     "ai",
     "gateway",
-    "payment-cleanup"
+    "payment-cleanup",
+    "producer",
+    "outbox-monitoring",
+    "product-inventory-outbox",
+    "outbox-completion"
   ],
   "primaryFeature": "hexagonal-ddd-product",
   "features": {
@@ -130,16 +133,12 @@
       }
     },
     "compensation-transaction": {
-      "phase": "completed",
-      "matchRate": 97,
+      "phase": "archived",
+      "matchRate": 94,
       "iterationCount": 0,
-      "planPath": "docs/01-plan/features/compensation-transaction.plan.md",
-      "designPath": "docs/02-design/features/compensation-transaction.design.md",
-      "analysisPath": "docs/03-analysis/compensation-transaction.analysis.md",
-      "reportPath": "docs/04-report/features/compensation-transaction.report.md",
       "startedAt": "2026-02-13T11:06:11.637Z",
-      "lastUpdated": "2026-02-13T11:40:00.000Z",
-      "completedAt": "2026-02-13T11:40:00.000Z"
+      "archivedAt": "2026-02-27T00:00:00.000Z",
+      "archivedTo": "docs/archive/2026-02/compensation-transaction/"
     },
     "hexagonal-ddd-pilot": {
       "phase": "act",
@@ -275,9 +274,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-19T10:44:33.178Z",
-        "lastUpdated": "2026-02-19T10:44:33.178Z"
+        "lastUpdated": "2026-02-27T05:40:03.118Z"
       },
-      "lastFile": "/Users/stw/Dev/project/Live-Commerce/ai/src/main/java/com/live_commerce/ai/adapter/out/notification/SlackNotificationAdapter.java"
+      "lastFile": "/Users/stw/Dev/project/Live-Commerce/common-lib/src/main/java/com/live_commerce/common/notification/SlackNotificationService.java"
     },
     "service": {
       "phase": "do",
@@ -288,9 +287,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-19T10:44:45.136Z",
-        "lastUpdated": "2026-02-20T11:25:45.515Z"
+        "lastUpdated": "2026-02-28T04:26:00.598Z"
       },
-      "lastFile": "/Users/stw/Dev/project/Live-Commerce/payment/src/test/java/com/live_commerce/payment/application/service/PaymentDistributedLockTest.java"
+      "lastFile": "/Users/stw/Dev/project/Live-Commerce/product/src/main/java/com/live_commerce/product/inventory/application/service/InventoryService.java"
     },
     "response": {
       "phase": "do",
@@ -314,9 +313,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-19T10:45:25.964Z",
-        "lastUpdated": "2026-02-20T10:56:24.705Z"
+        "lastUpdated": "2026-02-27T05:42:55.864Z"
       },
-      "lastFile": "/Users/stw/Dev/project/Live-Commerce/payment/src/main/java/com/live_commerce/payment/presentation/controller/PaymentControllerV3.java"
+      "lastFile": "/Users/stw/Dev/project/Live-Commerce/order/src/main/java/com/live_commerce/order/presentation/controller/OutboxAdminController.java"
     },
     "ai": {
       "phase": "do",
@@ -383,6 +382,146 @@
       },
       "previousPhase": "check",
       "autoAdvanced": true
+    },
+    "inventory": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-26T10:32:36.925Z",
+        "lastUpdated": "2026-02-26T10:33:10.168Z"
+      },
+      "lastFile": "/Users/stw/Dev/project/Live-Commerce/event-schema/src/main/java/com/live_commerce/events/inventory/InventorySoldOutEvent.java"
+    },
+    "consumer": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-26T10:33:20.070Z",
+        "lastUpdated": "2026-02-28T04:26:14.925Z"
+      },
+      "lastFile": "/Users/stw/Dev/project/Live-Commerce/product/src/main/java/com/live_commerce/product/product/infrastructure/kafka/consumer/InventoryEventConsumer.java"
+    },
+    "kafka": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-26T10:33:39.626Z",
+        "lastUpdated": "2026-02-26T10:35:29.008Z"
+      },
+      "lastFile": "/Users/stw/Dev/project/Live-Commerce/payment/src/main/java/com/live_commerce/payment/infrastructure/adapter/in/kafka/OrderFailedKafkaConsumer.java"
+    },
+    "producer": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-26T10:33:55.894Z",
+        "lastUpdated": "2026-02-26T10:33:55.894Z"
+      },
+      "lastFile": "/Users/stw/Dev/project/Live-Commerce/payment/src/main/java/com/live_commerce/payment/infrastructure/kafka/producer/PaymentEventProducer.java"
+    },
+    "event": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-26T10:36:11.573Z",
+        "lastUpdated": "2026-02-28T10:50:25.812Z"
+      },
+      "lastFile": "/Users/stw/Dev/project/Live-Commerce/payment/src/main/java/com/live_commerce/payment/infrastructure/adapter/event/KafkaEventPublisherAdapter.java"
+    },
+    "config": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-26T10:36:19.151Z",
+        "lastUpdated": "2026-02-26T10:36:22.720Z"
+      },
+      "lastFile": "/Users/stw/Dev/project/Live-Commerce/payment/src/main/java/com/live_commerce/payment/infrastructure/kafka/config/KafkaConfig.java"
+    },
+    "messaging": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-26T10:37:47.162Z",
+        "lastUpdated": "2026-02-28T10:49:38.881Z"
+      },
+      "lastFile": "/Users/stw/Dev/project/Live-Commerce/coupon/src/main/java/com/live_commerce/coupon/adapter/out/messaging/KafkaCouponEventPublisher.java"
+    },
+    "outbox": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-27T05:40:13.281Z",
+        "lastUpdated": "2026-02-28T10:49:45.963Z"
+      },
+      "lastFile": "/Users/stw/Dev/project/Live-Commerce/payment/src/main/java/com/live_commerce/payment/infrastructure/outbox/OutboxEventHelper.java"
+    },
+    "outbox-monitoring": {
+      "phase": "archived",
+      "matchRate": 100,
+      "iterationCount": 0,
+      "startedAt": "2026-02-28T03:39:35.741Z",
+      "archivedAt": "2026-02-28T06:00:00.000Z",
+      "archivedTo": "docs/archive/2026-02/outbox-monitoring/"
+    },
+    "product-inventory-outbox": {
+      "phase": "report",
+      "matchRate": 100,
+      "iterationCount": 0,
+      "startedAt": "2026-02-28T09:52:59.070Z",
+      "archivedAt": "2026-02-28T05:00:00.000Z",
+      "archivedTo": "docs/archive/2026-02/product-inventory-outbox/",
+      "phaseNumber": 6,
+      "previousPhase": "check",
+      "autoAdvanced": true,
+      "timestamps": {
+        "lastUpdated": "2026-02-28T09:57:00.192Z"
+      }
+    },
+    "outbox-completion": {
+      "phase": "act",
+      "phaseNumber": 5,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-28T10:57:45.702Z",
+        "lastUpdated": "2026-02-28T10:57:45.703Z"
+      },
+      "previousPhase": "check",
+      "autoAdvanced": true
     }
   },
   "pipeline": {
@@ -393,7 +532,7 @@
   "session": {
     "startedAt": "2026-02-13T11:06:11.637Z",
     "onboardingCompleted": true,
-    "lastActivity": "2026-02-20T11:29:24.706Z"
+    "lastActivity": "2026-02-28T10:57:45.703Z"
   },
   "history": [
     {
@@ -3020,6 +3159,240 @@
     {
       "timestamp": "2026-02-20T11:29:24.706Z",
       "feature": "payment-cleanup",
+      "phase": "act",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:32:36.925Z",
+      "feature": "inventory",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:33:10.168Z",
+      "feature": "inventory",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:33:20.070Z",
+      "feature": "consumer",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:33:24.382Z",
+      "feature": "service",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:33:39.626Z",
+      "feature": "kafka",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:33:55.894Z",
+      "feature": "producer",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:35:29.008Z",
+      "feature": "kafka",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:35:29.986Z",
+      "feature": "consumer",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:36:11.573Z",
+      "feature": "event",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:36:19.151Z",
+      "feature": "config",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:36:22.720Z",
+      "feature": "config",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:36:45.588Z",
+      "feature": "service",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:36:46.521Z",
+      "feature": "service",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:37:26.912Z",
+      "feature": "service",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:37:31.552Z",
+      "feature": "service",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:37:38.197Z",
+      "feature": "service",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:37:47.162Z",
+      "feature": "messaging",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:38:45.767Z",
+      "feature": "consumer",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-26T10:46:10.326Z",
+      "feature": "compensation-transaction",
+      "phase": "report",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-27T05:40:03.118Z",
+      "feature": "notification",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-27T05:40:13.281Z",
+      "feature": "outbox",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-27T05:40:46.101Z",
+      "feature": "outbox",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-27T05:42:25.492Z",
+      "feature": "consumer",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-27T05:42:55.864Z",
+      "feature": "controller",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T03:39:35.742Z",
+      "feature": "outbox-monitoring",
+      "phase": "act",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T04:25:39.774Z",
+      "feature": "outbox",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T04:25:45.985Z",
+      "feature": "service",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T04:25:50.099Z",
+      "feature": "service",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T04:26:00.598Z",
+      "feature": "service",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T04:26:06.855Z",
+      "feature": "consumer",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T04:26:14.925Z",
+      "feature": "consumer",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T09:52:59.071Z",
+      "feature": "product-inventory-outbox",
+      "phase": "act",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T09:57:00.194Z",
+      "feature": "product-inventory-outbox",
+      "phase": "report",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T10:49:17.652Z",
+      "feature": "messaging",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T10:49:29.980Z",
+      "feature": "outbox",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T10:49:38.881Z",
+      "feature": "messaging",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T10:49:45.963Z",
+      "feature": "outbox",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T10:50:25.812Z",
+      "feature": "event",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T10:57:45.703Z",
+      "feature": "outbox-completion",
       "phase": "act",
       "action": "updated"
     }

@@ -11,13 +11,14 @@ import com.live_commerce.product.inventory.domain.exception.InventoryException;
 import com.live_commerce.product.inventory.domain.model.Inventory;
 import com.live_commerce.product.inventory.domain.model.InventoryStatus;
 import com.live_commerce.product.inventory.domain.repository.InventoryRepository;
-import com.live_commerce.product.product.infrastructure.kafka.event.InventorySoldOutEvent;
+import com.live_commerce.events.inventory.InventoryDecreasedEvent;
+import com.live_commerce.events.inventory.InventorySoldOutEvent;
 import com.live_commerce.product.product.domain.repository.ProductRepository;
 import com.live_commerce.product.inventory.infrastructure.redisson.DistributedLock;
+import com.live_commerce.product.product.infrastructure.outbox.OutboxEventHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +32,7 @@ public class InventoryService {
     private final InventoryRepository inventoryRepository;
     private final ProductRepository productRepository;
     private final InventoryValidator inventoryValidator;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OutboxEventHelper outboxEventHelper;
     private final StringRedisTemplate redisTemplate;
 
     @Transactional
@@ -85,7 +86,7 @@ public class InventoryService {
 
     @Transactional
     @DistributedLock(key = "#productId")
-    public void decreaseInventoryV2(UUID productId, int quantity) {
+    public void decreaseInventoryV2(UUID orderId, UUID productId, int quantity) {
         int updated = inventoryRepository.decreaseInventoryAtomically(productId, quantity);
         if (updated == 0) {
             throw InventoryException.forInventoryOutOfStock();
@@ -98,11 +99,16 @@ public class InventoryService {
 
         if (inventory.getAvailableQuantity() == 0) {
             inventory.changeStatus(InventoryStatus.OUT_OF_STOCK);
-
-            InventorySoldOutEvent soldOutEvent = new InventorySoldOutEvent(productId);
-            kafkaTemplate.send("inventory-sold-out", soldOutEvent);
-            log.info("inventory-sold-out 이벤트 발행 완료: {}", soldOutEvent);
+            InventorySoldOutEvent soldOutEvent = InventorySoldOutEvent.of(productId);
+            outboxEventHelper.saveEvent("INVENTORY", productId,
+                    "INVENTORY_SOLD_OUT", "inventory-sold-out", soldOutEvent);
+            log.info("[InventoryService] inventory-sold-out Outbox 저장 - productId: {}", productId);
         }
+
+        InventoryDecreasedEvent decreasedEvent = InventoryDecreasedEvent.of(orderId, productId, quantity);
+        outboxEventHelper.saveEvent("INVENTORY", orderId,
+                "INVENTORY_DECREASED", "inventory-decreased", decreasedEvent);
+        log.info("[InventoryService] inventory-decreased Outbox 저장 - orderId: {}", orderId);
     }
 
     public boolean isSoldOut(UUID productId) {
