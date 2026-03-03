@@ -41,8 +41,8 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.type.mapping: >
-          payment-completed:com.live_commerce.payment.infrastructure.kafka.event.PaymentCompletedEvent,
-          payment-failed:com.live_commerce.payment.infrastructure.kafka.event.PaymentFailedEvent
+          payment-completed:com.live_commerce.events.payment.PaymentCompletedEvent,
+          payment-failed:com.live_commerce.events.payment.PaymentFailedEvent
 
     consumer:
       group-id: ${spring.application.name}
@@ -52,8 +52,8 @@ spring:
       properties:
         spring.json.trusted.packages: '*'
         spring.json.type.mapping: >
-          payment-completed:com.live_commerce.payment.infrastructure.kafka.event.PaymentCompletedEvent,
-          payment-failed:com.live_commerce.payment.infrastructure.kafka.event.PaymentFailedEvent
+          payment-completed:com.live_commerce.events.payment.PaymentCompletedEvent,
+          payment-failed:com.live_commerce.events.payment.PaymentFailedEvent
 
     listener:
       ack-mode: MANUAL_IMMEDIATE

@@ -95,6 +95,9 @@ dependencies {
 
 	// event-schema (공통 이벤트 DTO)
 	implementation project(':event-schema')
+
+	// common-lib (Outbox Pattern, SlackNotificationService)
+	implementation project(':common-lib')
 }
 
 dependencyManagement {

@@ -11,7 +11,7 @@ import com.live_commerce.payment.application.exception.CustomException;
 import com.live_commerce.payment.application.exception.KakaoPayApiException;
 import com.live_commerce.payment.application.port.in.CompensatePaymentUseCase;
 import com.live_commerce.payment.application.port.in.CompensatePaymentUseCase.CompensatePaymentCommand;
-import com.live_commerce.payment.infrastructure.kafka.event.OrderFailedEvent;
+import com.live_commerce.events.order.OrderFailedEvent;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

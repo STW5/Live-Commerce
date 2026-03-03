@@ -34,6 +34,9 @@ dependencies {
     // Kafka (OutboxEventPublisher KafkaTemplate 지원)
     implementation 'org.springframework.kafka:spring-kafka'
 
+    // Micrometer (Prometheus 메트릭)
+    implementation 'io.micrometer:micrometer-core'
+
     // Jackson (JSON 직렬화)
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'

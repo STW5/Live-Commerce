@@ -8,8 +8,8 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
-import com.live_commerce.payment.infrastructure.kafka.event.OrderFailedEvent;
-import com.live_commerce.payment.infrastructure.notification.SlackNotificationService;
+import com.live_commerce.events.order.OrderFailedEvent;
+import com.live_commerce.common.notification.SlackNotificationService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

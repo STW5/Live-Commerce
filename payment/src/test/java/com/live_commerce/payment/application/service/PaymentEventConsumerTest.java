@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import com.live_commerce.payment.application.port.in.CompensatePaymentUseCase;
 import com.live_commerce.payment.application.port.in.CompensatePaymentUseCase.CompensatePaymentCommand;
 import com.live_commerce.payment.infrastructure.adapter.in.kafka.OrderFailedKafkaConsumer;
-import com.live_commerce.payment.infrastructure.kafka.event.OrderFailedEvent;
+import com.live_commerce.events.order.OrderFailedEvent;
 
 public class PaymentEventConsumerTest {
 

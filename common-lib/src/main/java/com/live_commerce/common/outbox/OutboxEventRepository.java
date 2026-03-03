@@ -18,10 +18,27 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
     List<OutboxEvent> findByStatusOrderByCreatedAtAsc(OutboxStatus status);
 
     /**
-     * 재시도 가능한 실패 이벤트 조회
+     * 재시도 가능한 실패 이벤트 조회 (retryCount < 3 으로 canRetry() 기준과 일치)
      */
-    @Query("SELECT o FROM OutboxEvent o WHERE o.status = 'FAILED' AND o.retryCount < 5 ORDER BY o.createdAt ASC")
+    @Query("SELECT o FROM OutboxEvent o WHERE o.status = 'FAILED' AND o.retryCount < 3 ORDER BY o.createdAt ASC")
     List<OutboxEvent> findRetryableFailedEvents();
+
+    /**
+     * Dead Letter 이벤트 조회 (retryCount >= 3, 더 이상 재시도 불가)
+     */
+    @Query("SELECT o FROM OutboxEvent o WHERE o.status = 'FAILED' AND o.retryCount >= 3 ORDER BY o.createdAt DESC")
+    List<OutboxEvent> findDeadLetterEvents();
+
+    /**
+     * Dead Letter 이벤트 수 (모니터링 메트릭용)
+     */
+    @Query("SELECT COUNT(o) FROM OutboxEvent o WHERE o.status = 'FAILED' AND o.retryCount >= 3")
+    long countDeadLetterEvents();
+
+    /**
+     * 상태별 이벤트 수 (stats API용)
+     */
+    long countByStatus(OutboxStatus status);
 
     /**
      * 특정 시간 이전의 성공 이벤트 삭제 (Clean up)

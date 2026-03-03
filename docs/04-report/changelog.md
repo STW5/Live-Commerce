@@ -2,7 +2,71 @@
 
 > **Summary**: Live Commerce Platform 도메인 서비스 현대화 진행 현황
 >
-> **Last Updated**: 2026-02-14
+> **Last Updated**: 2026-02-28
+
+---
+
+## [2026-02-28] - Product 서비스 Inventory Outbox 패턴 전환 완료
+
+### Added
+- **product-inventory-outbox** Outbox 패턴 마이그레이션 완료 (Match Rate: 100%)
+- OutboxEventHelper.java: product.product.infrastructure.outbox 패키지 신규 생성
+- Outbox Events: 2개 이벤트 원자적 저장
+  - `inventory-decreased`: Order 서비스로 재고 차감 확인
+  - `inventory-sold-out`: Broadcast 서비스로 완매 상태 통보
+- InventoryService.decreaseInventoryV2() 시그니처 강화
+  - `orderId` 파라미터 추가 (이벤트 추적성)
+  - Outbox 저장 로직 통합 (단일 @Transactional 컨텍스트)
+- InventoryEventConsumer 간소화
+  - KafkaTemplate 직접 호출 제거
+  - 모든 이벤트 발행을 InventoryService 내부로 이동
+
+### Changed
+- InventoryService: KafkaTemplate 필드 제거 → OutboxEventHelper 주입
+- InventoryEventConsumer: Kafka 직접 발행 제거 (decreaseInventoryV2 호출로 통합)
+- 로그 메시지 표준화: `[ComponentName]` 접두사 추가
+
+### Infrastructure
+- Dependency: `common-lib` 추가 (OutboxEvent, OutboxEventRepository)
+- Architecture: Saga 체인의 신뢰성 완성
+  - Order (inventory-decrease, Outbox) ✅
+  - Product (inventory-decreased + inventory-sold-out, Outbox) ✅
+  - Payment (payment-completed, 예정)
+  - Notification (notification-sent, 예정)
+
+### Metrics
+- **Design Match Rate**: 100% (14/14 checklist items)
+- **Architecture Compliance**: 100%
+- **Convention Compliance**: 100%
+- **Positive Enhancements**: 1 (Javadoc 확장)
+- **Build Status**: PASS
+- **Files Changed**: 4개 (신규 1개, 수정 3개)
+
+### ADR (Architecture Decision Records)
+1. ADR-1: inventory-decreased를 InventoryService로 이동
+2. ADR-2: OutboxEventHelper를 product 패키지에 배치
+3. ADR-3: InventorySoldOutEvent.of() 정적 팩토리 통일
+
+### Next Steps
+- payment-outbox: Payment 서비스 Outbox 전환 (예상: 2026-03-01)
+- notification-outbox: Notification 서비스 Outbox 전환 (예상: 2026-03-02)
+- hexagonal-ddd-product: Product 서비스 DDD 마이그레이션 (예상: 2026-03-15)
+
+---
+
+## [2026-02-26] - Order 서비스 보상 트랜잭션 안정화 완료
+
+### Added
+- **compensation-transaction** Outbox + Saga State + DLQ 패턴 완료 (Match Rate: 94.0%)
+- OutboxEvent 저장 및 Poller 기반 신뢰성 있는 이벤트 발행
+- Saga State 테이블: 분산 트랜잭션 상태 추적
+- DLQ (Dead Letter Queue): 처리 실패 이벤트 보관 및 모니터링
+- Slack 알림: DLQ 이벤트 자동 알림 (ProactiveNotificationListener)
+
+### Metrics
+- **Design Match Rate**: 94.0% (25-item gap analysis)
+- **Files Changed**: 4개 서비스 (Order, Payment, Product, Coupon)
+- **Build Status**: PASS
 
 ---
 
@@ -118,12 +182,21 @@
 
 | Metric | Current | Target |
 |--------|:-------:|:------:|
-| Services with Hexagonal+DDD | 2/5 | 5/5 |
-| Average Match Rate | 91.75% | >= 90% |
-| Legacy Services | 3/5 | 0/5 |
-| PDCA Cycles Completed | 2 | 4 |
+| Outbox Migration Completed | 2/4 | 4/4 |
+| Average Match Rate | 98.0% | >= 90% |
+| Services Modernized | 2/5 | 5/5 |
+| PDCA Cycles Completed | 3 | 10+ |
 
-### Service Migration Status
+### Outbox Pattern Migration Status
+
+| Phase | Service | Status | Match Rate | Completion |
+|:-----:|---------|:------:|:----------:|-----------|
+| 1 | Order (compensation-transaction) | Complete | 94.0% | 2026-02-26 |
+| 2 | Product (inventory-outbox) | Complete | 100% | 2026-02-28 |
+| 3 | Payment (payment-outbox) | Planning | TBD | 2026-03-01 |
+| 4 | Notification (notification-outbox) | Planning | TBD | 2026-03-02 |
+
+### Hexagonal+DDD Migration Status
 
 | Service | Phase | Status | Match Rate | Est. Completion |
 |---------|:-----:|:------:|:----------:|-----------------|

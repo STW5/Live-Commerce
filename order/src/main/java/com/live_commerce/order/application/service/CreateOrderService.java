@@ -7,6 +7,8 @@ import com.live_commerce.order.domain.exception.OrderDomainException;
 import com.live_commerce.order.domain.model.Order;
 import com.live_commerce.order.domain.model.vo.DiscountPolicy;
 import com.live_commerce.order.domain.model.vo.OrderQuantity;
+import com.live_commerce.common.saga.SagaState;
+import com.live_commerce.common.saga.SagaStateRepository;
 import com.live_commerce.order.domain.port.in.CreateOrderUseCase;
 import com.live_commerce.order.domain.port.out.BroadcastQueryPort;
 import com.live_commerce.order.domain.port.out.CouponQueryPort;
@@ -38,6 +40,7 @@ public class CreateOrderService implements CreateOrderUseCase {
     private final ProductQueryPort productQueryPort;
     private final CouponQueryPort couponQueryPort;
     private final OrderRepositoryPort orderRepositoryPort;
+    private final SagaStateRepository sagaStateRepository;
 
     @Override
     @Transactional
@@ -94,6 +97,16 @@ public class CreateOrderService implements CreateOrderUseCase {
         // 6. 주문 저장
         Order savedOrder = orderRepositoryPort.save(order);
         log.info("[CreateOrderService] 주문 생성 완료: {}", savedOrder.getId());
+
+        // 7. Saga 추적 시작 (Best Effort - 실패해도 주문 생성에 영향 없음)
+        try {
+            SagaState saga = SagaState.start("ORDER_CREATION", savedOrder.getId(), null);
+            sagaStateRepository.save(saga);
+            log.info("[CreateOrderService] SagaState 시작 - orderId: {}", savedOrder.getId());
+        } catch (Exception e) {
+            log.warn("[CreateOrderService] SagaState 저장 실패 (무시) - orderId: {}, reason: {}",
+                    savedOrder.getId(), e.getMessage());
+        }
 
         return CreateOrderResult.from(savedOrder);
     }

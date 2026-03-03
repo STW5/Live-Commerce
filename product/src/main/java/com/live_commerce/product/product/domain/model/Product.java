@@ -1,66 +1,55 @@
 package com.live_commerce.product.product.domain.model;
 
-
-import com.live_commerce.product.product.application.dto.ProductUpdateRequestDto;
-import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.UuidGenerator;
 
 import java.util.UUID;
 
-@Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "p_product", schema = "products")
-public class Product extends BaseEntity{
+public class Product extends BaseEntity {
 
-    @Id
-    @UuidGenerator
     private UUID productId;
-
     private UUID companyId;
-
     private String name;
-
     private String description;
-
     private Integer price;
-
-    @Enumerated(EnumType.STRING)
     private ProductCategory category;
-
-    @Enumerated(EnumType.STRING)
     private ProductStatus productStatus;
 
     @Builder
-    private Product(UUID companyId, String name, String description, Integer price, ProductCategory category) {
+    private Product(UUID productId, UUID companyId, String name, String description,
+                    Integer price, ProductCategory category, ProductStatus productStatus) {
+        this.productId = productId;
         this.companyId = companyId;
         this.name = name;
         this.description = description;
         this.price = price;
         this.category = category;
-        this.productStatus = ProductStatus.PREPARING;
+        this.productStatus = productStatus;
     }
 
-    public static Product create(UUID companyId, String name, String description, Integer price, ProductCategory category) {
+    public static Product create(UUID companyId, String name, String description,
+                                 Integer price, ProductCategory category) {
         return Product.builder()
                 .companyId(companyId)
                 .name(name)
                 .description(description)
                 .price(price)
                 .category(category)
+                .productStatus(ProductStatus.PREPARING)
                 .build();
     }
 
-    public void update(ProductUpdateRequestDto dto) {
-        if (dto.name() != null) { this.name = dto.name(); }
-        if (dto.description() != null) { this.description = dto.description(); }
-        if (dto.price() != null) { this.price = dto.price(); }
-        if (dto.category() != null) { this.category = dto.category(); }
-        if (dto.productStatus() != null) { this.productStatus = dto.productStatus(); }
+    public void update(String name, String description, Integer price,
+                       ProductCategory category, ProductStatus productStatus) {
+        if (name != null) this.name = name;
+        if (description != null) this.description = description;
+        if (price != null) this.price = price;
+        if (category != null) this.category = category;
+        if (productStatus != null) this.productStatus = productStatus;
     }
 
     public void changeStatus(ProductStatus productStatus) {

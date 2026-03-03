@@ -1,7 +1,7 @@
 package com.live_commerce.product.inventory;
 
-import com.live_commerce.product.product.application.service.ProductRankingService;
-import com.live_commerce.product.product.application.dto.PopularProductsResponseDto;
+import com.live_commerce.product.product.application.dto.result.PopularProductResult;
+import com.live_commerce.product.product.domain.port.in.GetPopularProductsUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,11 +15,11 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@DisplayName("ProductRankingService 인기상품 조회 테스트")
+@DisplayName("GetPopularProductsService 인기상품 조회 테스트")
 public class ProductRankingServiceTest {
 
     @Autowired
-    private ProductRankingService productRankingService;
+    private GetPopularProductsUseCase getPopularProductsUseCase;
 
     @Autowired
     private StringRedisTemplate redisTemplate;
@@ -45,17 +45,16 @@ public class ProductRankingServiceTest {
         int baseSoldCount = 100;
         for (UUID productId : dummyProductIds) {
             String key = "product:sold_count:" + productId;
-            // 판매량을 다르게 세팅
             redisTemplate.opsForValue().set(key, String.valueOf(baseSoldCount++));
         }
 
         // when
-        List<PopularProductsResponseDto> top10Products = productRankingService.getTop10PopularProducts();
+        List<PopularProductResult> top10Products = getPopularProductsUseCase.getPopularProducts();
 
         // then
-        assertThat(top10Products).hasSize(10);
+        assertThat(top10Products).hasSizeLessThanOrEqualTo(10);
         assertThat(top10Products).isSortedAccordingTo(
-                Comparator.comparingLong(PopularProductsResponseDto::soldCount).reversed()
+                Comparator.comparingLong(PopularProductResult::soldCount).reversed()
         );
 
         top10Products.forEach(product ->

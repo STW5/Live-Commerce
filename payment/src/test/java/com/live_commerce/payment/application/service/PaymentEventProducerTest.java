@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.kafka.core.KafkaTemplate;
 
-import com.live_commerce.payment.infrastructure.kafka.event.PaymentCompletedEvent;
+import com.live_commerce.events.payment.PaymentCompletedEvent;
 import com.live_commerce.payment.infrastructure.kafka.producer.PaymentEventProducer;
 
 public class PaymentEventProducerTest {

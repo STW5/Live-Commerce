@@ -54,7 +54,7 @@ public class KafkaConfig {
 
 		props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
 		props.put(JsonDeserializer.TYPE_MAPPINGS,
-			"order-failed:com.live_commerce.payment.infrastructure.kafka.event.OrderFailedEvent");
+			"order-failed:com.live_commerce.events.order.OrderFailedEvent");
 
 		return new DefaultKafkaConsumerFactory<>(props);
 	}
@@ -109,8 +109,8 @@ public class KafkaConfig {
 		props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
 		props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
 		props.put(JsonSerializer.TYPE_MAPPINGS,
-			"payment-completed:com.live_commerce.payment.infrastructure.kafka.event.PaymentCompletedEvent," +
-				"payment-failed:com.live_commerce.payment.infrastructure.kafka.event.PaymentFailedEvent");
+			"payment-completed:com.live_commerce.events.payment.PaymentCompletedEvent," +
+				"payment-failed:com.live_commerce.events.payment.PaymentFailedEvent");
 
 		return new DefaultKafkaProducerFactory<>(props);
 	}
